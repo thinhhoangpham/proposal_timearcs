@@ -1,0 +1,301 @@
+.nodeText {
+  background: #91877b;
+  text-shadow: 0 11px 10 rgba(255, 255, 255, 1);
+}
+
+.node {
+    stroke: #fff;
+    stroke-width: 1px;
+    stroke-opacity: 0.6;
+}
+.link {
+    stroke: #555;
+    stroke-opacity: .9;
+}
+.linkArc {
+  fill: none;
+  stroke: #000;
+}
+
+.node text {
+  font: 9px helvetica;
+}
+
+.axis {
+  font: 5 sans-serif;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+
+.axis .domain {
+  fill: none;
+  stroke: #000;
+  stroke-opacity: .25;
+  stroke-width: 5px;
+  stroke-linecap: round;
+}
+
+.axis .halo {
+  fill: none;
+  stroke: #ddd;
+  stroke-width: 3px;
+  stroke-linecap: round;
+}
+
+.slider .handle {
+  fill: #666;
+  stroke: #000;
+  stroke-opacity: .25;
+  stroke-width: 1px;
+  cursor: crosshair;
+}
+
+
+h3 {
+    color: #1ABC9C;
+    text-align:center;  
+    font-style: italic;
+    font-size: 14px;
+    font-family: "Helvetica";
+}
+
+/* tooltip */
+.d3-tip {
+  line-height: 1;
+  padding: 5px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  border-radius: 2px;
+}
+
+/* Creates a small triangle extender for the tooltip */
+.d3-tip:after {
+  box-sizing: border-box;
+  display: inline;
+  font-size: 8px;
+  width: 100%;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.8);
+  content: "\25BC";
+  position: absolute;
+  text-align: center;
+}
+
+/* Layout for chart + publications panel (stacked) */
+#app {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  height: 100vh; /* ensure full viewport height layout */
+  box-sizing: border-box;
+}
+
+#chart {
+  flex: 0 0 auto; /* keep chart at intrinsic SVG height */
+  min-width: 0; /* allow SVG to shrink */
+}
+
+#pub-panel {
+  flex: 1 1 auto; /* take remaining height below chart */
+  max-width: 100%;
+  border-left: 0;
+  border-top: 1px solid #ddd; /* separator from chart */
+  overflow: hidden; /* prevent overflow, let children handle scrolling */
+  padding: 12px 12px 16px 12px;
+  min-height: 0; /* required for flex children to allow overflow */
+  display: flex;
+  flex-direction: column;
+}
+
+.pub-panel__body {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 20px;
+}
+
+.pub-panel__header {
+  font-family: sans-serif;
+  font-size: 18px; /* larger header */
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.pub-panel__content {
+  font-family: sans-serif;
+  font-size: 12px;
+  color: #333;
+  flex: 1 1 auto;
+  overflow-y: auto; /* independent scroll */
+  min-width: 0;
+}
+
+.pub-panel__legend {
+  flex: 0 0 auto;
+  width: 250px;
+  overflow-y: auto;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  max-height: 100%;
+}
+
+.legend-group {
+  margin-bottom: 4px;
+}
+
+.themeLegendEntry {
+  transition: background-color 0.2s ease;
+}
+
+.themeLegendEntry:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.legend-category {
+  font-weight: 600;
+}
+
+.legend-arrow {
+  user-select: none;
+}
+
+.legend-sponsors-list {
+  border-left: 1px solid #e0e0e0;
+  margin-left: 15px;
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+
+.legend-sponsor {
+  font-size: 10px !important;
+}
+
+.pub-group {
+  margin-bottom: 14px;
+}
+
+.pub-group__title {
+  font-weight: 700; /* bold professor */
+  font-size: 14px;
+  margin: 6px 0 4px 0;
+  transition: all 0.2s ease;
+}
+
+.pub-group__title.highlighted {
+  background-color: #ffeb3b;
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: #000;
+}
+
+.pub-group__title.faded {
+  opacity: 0.2;
+}
+
+.pub-item {
+  margin: 2px 0;
+  line-height: 1.3;
+  padding-left: 16px; /* indent publications by one tab */
+}
+
+.pub-item__year {
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.pub-muted {
+  color: #666;
+  font-style: italic;
+}
+
+/* Responsive: already stacked; keep simple tweaks */
+@media (max-width: 900px) {
+  #app {
+    flex-direction: column;
+  }
+  #pub-panel {
+    max-width: 100%;
+  }
+}
+
+/* Reset page margins and ensure full-height layout */
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* Prevent chart area from creating page scrollbars */
+#chart {
+  overflow: hidden;
+}
+
+/* Ensure legend background stroke remains 1px */
+.themeLegendBackground {
+  stroke-width: 1px !important;
+  stroke: #ccc;
+  fill: rgba(255,255,255,0.92);
+}
+
+/* Clustering mode controls */
+#clustering-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  background: #f8f8f8;
+  border-top: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+  gap: 12px;
+}
+
+.clustering-label {
+  font-family: sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-right: 8px;
+}
+
+.clustering-btn {
+  padding: 8px 20px;
+  font-family: sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #555;
+  background: white;
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.clustering-btn:hover {
+  background: #f0f0f0;
+  border-color: #999;
+  color: #333;
+}
+
+.clustering-btn.active {
+  background: #1ABC9C;
+  color: white;
+  border-color: #16a085;
+  font-weight: 600;
+}
+
+.clustering-btn.active:hover {
+  background: #16a085;
+  border-color: #16a085;
+}
+
+.clustering-btn:active {
+  transform: translateY(1px);
+}
