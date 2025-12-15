@@ -1205,7 +1205,7 @@ function computeLinks() {
         .on('mouseout', mouseoutedLink);
 
     // Render proposal circles for sponsor groups (replaced streamgraphs)
-    renderProposalCircles();
+    // renderProposalCircles(); // DISABLING: User found these confusing background nodes redundant
 
     svg.selectAll(".nodeG").remove();
     nodeG = svg.selectAll(".nodeG")
@@ -1748,9 +1748,6 @@ function mouseoveredNode(d) {
         .style("font-weight", function (n) { return d.name == n.name ? "bold" : ""; })
         ;
 
-    // Highlight proposal circles for the hovered node
-    highlightAuthorCircles(d.name, list);
-
     nodeG.transition().duration(500).attr("transform", function (n) {
         if (list[n.name] && n.name != d.name) {
             var newX = xStep + xScale(list[n.name].year);
@@ -1775,9 +1772,6 @@ function mouseoutedNode(d) {
             .style("stroke-opacity", 1);
         svg.selectAll(".linePNodes")
             .style("stroke-opacity", 1);
-
-        // Restore proposal circle highlighting
-        resetCircleHighlight();
 
         nodeG.style("font-weight", "");
         nodeG.transition().duration(500).attr("transform", function (n) {
@@ -2010,11 +2004,17 @@ function updateTransition(durationTime, timeY) {  // timeY is the position of ti
             d.y = nodes[d.parentNode].y;
     });
 
-    // COMPUTE PROPOSAL NODES for the new view
+    // Proposal setup
     computeProposalNodes();
 
     // RENDER PROPOSAL NETWORK
     renderProposalNetwork(durationTime);
+
+    // Hide author nodes (circles) but keep labels
+    if (nodeG) {
+        nodeG.selectAll("circle").style("opacity", 0);
+    }
+
     var list = new Object();
     links.forEach(function (l) {
         var m = l.m
@@ -2090,8 +2090,6 @@ function updateTransition(durationTime, timeY) {  // timeY is the position of ti
         .text(function (d) { return d.name; })
         .attr("dy", "3px");
 
-    // Update proposal circles to follow node Y positions
-    updateProposalCircles(durationTime);
     linkArcs.transition().duration(durationTime).attr("d", linkArc);
 }
 
@@ -2299,10 +2297,6 @@ function switchToThemeClustering() {
 window.switchToConnectivityClustering = switchToConnectivityClustering;
 window.switchToThemeClustering = switchToThemeClustering;
 
-var showSingles = false; // Default: hidden
-// Toggle function removed as per request
-
-
 function computeProposalNodes() {
     proposalNodes = [];
     proposalLinks = [];
@@ -2327,8 +2321,7 @@ function computeProposalNodes() {
             }
         });
 
-        // Filter: Show ONLY collaborations (2+ authors)
-        if (authorIndices.length < 2) return;
+        if (authorIndices.length < 2) return; // Strict filter: No single authors
 
         // Calculate center Y and vertical span
         var centerY = 0;
@@ -2489,4 +2482,8 @@ function renderProposalNetwork(duration) {
     // Raise nodes above links
     nodeSel.each(function () { this.parentNode.appendChild(this); });
 }
+
+// Raise nodes above links
+nodeSel.each(function () { this.parentNode.appendChild(this); });
+
 

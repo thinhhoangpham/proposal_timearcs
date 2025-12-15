@@ -299,3 +299,20 @@ html, body {
 .clustering-btn:active {
   transform: translateY(1px);
 }
+
+/* Proposal Nodes Visualization */
+.proposalNode {
+    stroke: #333;
+    stroke-width: 0.5px;
+    cursor: pointer;
+}
+
+.proposalNode:hover {
+    stroke: #000;
+    stroke-width: 1.5px;
+}
+
+.proposalLink {
+    stroke-linecap: round;
+    pointer-events: none; /* Let clicks pass through to nodes/authors */
+}
