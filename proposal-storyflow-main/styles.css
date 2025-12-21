@@ -1,0 +1,419 @@
+/* StoryFlow Proposal Visualization Styles - Enhanced */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #fff;
+    color: #24292f;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding: 10px;
+}
+
+/* Legend at top */
+.legend {
+    padding: 12px 15px;
+    background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.legend-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #1e293b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.legend-items {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: flex-start;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #475569;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.legend-item:hover {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1e40af;
+}
+
+.legend-item.inactive {
+    opacity: 0.4;
+}
+
+.legend-item.inactive:hover {
+    opacity: 0.7;
+}
+
+.legend-show-all {
+    font-weight: 600;
+    background: #e2e8f0;
+    color: #334155;
+    margin-right: 8px;
+}
+
+.legend-show-all.active {
+    background: #3b82f6;
+    color: #fff;
+}
+
+.legend-show-all:hover {
+    background: #cbd5e1;
+}
+
+.legend-show-all.active:hover {
+    background: #2563eb;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* TimeArcs Legend Styles Ported */
+.legend-group {
+    position: relative;
+    margin-right: 10px;
+    margin-bottom: 4px;
+}
+
+.themeLegendEntry {
+    transition: background-color 0.2s ease;
+}
+
+.themeLegendEntry:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+}
+
+.legend-category {
+    font-weight: 600;
+}
+
+.legend-arrow {
+    user-select: none;
+}
+
+.legend-sponsors-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    min-width: 200px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+}
+
+.legend-sponsor {
+    font-size: 10px !important;
+}
+
+/* SVG Container - fills remaining space */
+.viz-wrapper {
+    flex: 1;
+    overflow: auto;
+    background: #fff;
+}
+
+#visualization {
+    display: block;
+}
+
+/* Author Paths - the main storylines */
+.author-path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: opacity 0.25s ease, stroke-width 0.2s ease;
+    cursor: pointer;
+}
+
+.author-path:hover {
+    stroke-width: 5 !important;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2)) !important;
+}
+
+.author-path.dimmed {
+    opacity: 0.06;
+}
+
+.author-path.highlighted {
+    stroke-width: 5 !important;
+    opacity: 1 !important;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25)) !important;
+}
+
+.author-path.theme-hidden {
+    opacity: 0.04;
+    pointer-events: none;
+}
+
+/* Proposal bands (areas that paths flow through) */
+.proposal-band {
+    cursor: pointer;
+    transition: fill-opacity 0.15s, filter 0.15s, opacity 0.25s;
+}
+
+.proposal-band:hover {
+    filter: brightness(1.1) drop-shadow(0 2px 6px currentColor);
+}
+
+.proposal-band.dimmed {
+    opacity: 0.15;
+}
+
+.proposal-band.highlighted {
+    filter: brightness(1.1) drop-shadow(0 2px 8px currentColor);
+}
+
+.proposal-band.proposal-highlighted {
+    filter: brightness(1.2) drop-shadow(0 3px 10px currentColor);
+    stroke-width: 2.5 !important;
+}
+
+.proposal-band.theme-hidden {
+    opacity: 0.08;
+    pointer-events: none;
+}
+
+.proposal-band.proposal-hidden {
+    opacity: 0.03;
+    pointer-events: none;
+}
+
+.author-path.author-hidden {
+    opacity: 0.03;
+    pointer-events: none;
+}
+
+.author-start-label.author-hidden {
+    opacity: 0.1;
+    pointer-events: none;
+}
+
+/* Collaboration connectors */
+.collaboration-connector {
+    transition: opacity 0.25s ease;
+}
+
+.collaboration-connector.dimmed {
+    opacity: 0.1;
+}
+
+.collaboration-connector.highlighted {
+    stroke-opacity: 1;
+    stroke-width: 3.5 !important;
+}
+
+.collaboration-connector.theme-hidden {
+    opacity: 0.05;
+}
+
+/* Session dividers */
+.session-divider {
+    stroke: #f1f5f9;
+    stroke-width: 1;
+}
+
+/* Year markers */
+.year-band {
+    /* fill is set dynamically in app.js */
+}
+
+.year-label {
+    fill: #3b82f6;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+/* Author labels */
+.author-start-label {
+    font-size: 9px;
+    fill: #64748b;
+    text-anchor: end;
+    dominant-baseline: middle;
+    cursor: pointer;
+    transition: fill 0.15s, opacity 0.25s;
+}
+
+.author-start-label:hover {
+    fill: #1e40af;
+    font-weight: 600;
+}
+
+.author-start-label.dimmed {
+    opacity: 0.2;
+}
+
+.author-start-label.highlighted {
+    fill: #1e40af;
+    font-weight: 600;
+}
+
+.author-start-label.theme-hidden {
+    opacity: 0.15;
+}
+
+/* Locked state indicator */
+body.author-locked .viz-wrapper {
+    cursor: pointer;
+}
+
+/* Tooltip */
+.tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 12px;
+    max-width: 380px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12), 0 4px 10px rgba(0, 0, 0, 0.08);
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(5px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.tooltip-title {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 10px;
+    line-height: 1.4;
+    font-size: 13px;
+}
+
+.tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 5px 0;
+    gap: 20px;
+}
+
+.tooltip-row span:first-child {
+    color: #64748b;
+}
+
+.tooltip-row span:last-child {
+    color: #1e293b;
+    font-weight: 500;
+    text-align: right;
+}
+
+.tooltip-authors {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.tooltip-theme {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 8px;
+    color: #fff;
+}
+
+.tooltip-hint {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
+    font-size: 10px;
+    color: #94a3b8;
+    font-style: italic;
+    text-align: center;
+}
+
+.tooltip-collab-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+
+/* Collaboration nodes - larger with emphasis */
+.collaboration-node {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+.collaboration-node:hover {
+    filter: brightness(1.1) drop-shadow(0 3px 8px currentColor);
+}
+
+.collaboration-ring {
+    pointer-events: none;
+    transition: opacity 0.25s;
+}
+
+.collaboration-ring.dimmed {
+    opacity: 0.1;
+}
+
+.collaboration-ring.theme-hidden {
+    opacity: 0.05;
+}
+
+.tooltip-hint {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
+    font-size: 10px;
+    color: #94a3b8;
+    font-style: italic;
+    text-align: center;
+}
