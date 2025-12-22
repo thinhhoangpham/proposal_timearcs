@@ -16,6 +16,29 @@
         animationDelay: 25        // More staggered entry between authors
     };
 
+    // ============ DATA LOADING ============
+    const [rawData, sponsorsConfig] = await Promise.all([
+        d3.tsv('data/proposal.tsv'),
+        d3.json('../pubJavascripts/myscripts/sponsorsColors.json')
+    ]);
+
+    const sponsorColors = sponsorsConfig.sponsors || {};
+    const legendConfig = sponsorsConfig.legend || {};
+
+    // Helper to get color for a sponsor
+    function getSponsorColor(sponsorName) {
+        return sponsorColors[sponsorName] || '#666666';
+    }
+
+    // Helper to get category for a sponsor
+    function getSponsorCategory(sponsorName) {
+        const color = getSponsorColor(sponsorName);
+        for (const [category, config] of Object.entries(legendConfig)) {
+            if (config.color === color) return category;
+        }
+        return 'Other';
+    }
+
     const authorColors = [
         '#58a6ff', '#3fb950', '#f85149', '#a371f7', '#f0883e',
         '#56d4dd', '#db61a2', '#e3b341', '#79c0ff', '#ff7b72',
@@ -27,250 +50,8 @@
 
     // ============ STATE MANAGEMENT ============
     let lockedAuthor = null;
-    let activeThemes = new Set();
-    let allThemesActive = true;
-
-    // ============ DATA LOADING ============
-    const [rawData, colorConfig] = await Promise.all([
-        d3.tsv('data/proposal.tsv'),
-        d3.json('../pubJavascripts/myscripts/sponsorsColors.json?' + new Date().getTime())
-    ]);
-
-    console.log('Loaded colorConfig:', colorConfig);
-
-    // Process colors and legend
-    const sponsorColors = colorConfig.sponsors || {};
-    const legendConfig = colorConfig.legend || {};
-
-    console.log('Legend Config Keys:', Object.keys(legendConfig));
-
-    // Helper to normalize keys (matching TimeArcs logic)
-    function normalizeKey(k) {
-        if (!k) return "";
-        return k
-            .replace(/\s*&\s*/g, "/")
-            .replace(/\s*\/\s*/g, "/")
-            .replace(/\s{2,}/g, " ")
-            .trim();
-    }
-
-    // Build color map using normalized keys
-    const colorMap = new Map();
-    Object.keys(sponsorColors).forEach(key => {
-        colorMap.set(normalizeKey(key), sponsorColors[key]);
-    });
-
-    function getSponsorColor(sponsor) {
-        if (!sponsor) return '#484f58';
-        const key = normalizeKey(sponsor);
-        return colorMap.get(key) || '#484f58';
-    }
-
-    // Update Legend
-    // Update Legend
-    drawColorLegend();
-
-    function drawColorLegend() {
-        const legendContainer = document.getElementById('legend-items');
-        legendContainer.innerHTML = ''; // Clear existing
-
-        if (Object.keys(legendConfig).length > 0) {
-            // Create HTML structure for grouped legend with expand/collapse
-            Object.keys(legendConfig).forEach(function (categoryName) {
-                var category = legendConfig[categoryName];
-
-                // Create group container
-                var groupContainer = document.createElement('div');
-                groupContainer.className = 'legend-group';
-
-                // Create category entry (header)
-                var entry = document.createElement('div');
-                entry.className = 'themeLegendEntry legend-category';
-                entry.style.cssText = 'display: flex; align-items: center; padding: 2px 0; cursor: pointer;';
-
-                // Expand/collapse arrow
-                var arrow = document.createElement('span');
-                arrow.className = 'legend-arrow';
-                arrow.textContent = '▶';
-                arrow.style.cssText = 'font-size: 8px; margin-right: 4px; flex-shrink: 0; transition: transform 0.2s;';
-                entry.appendChild(arrow);
-
-                // Color swatch
-                var swatch = document.createElement('div');
-                swatch.style.cssText = 'width: 11px; height: 11px; background: ' + category.color + '; border-radius: 2px; margin-right: 5px; flex-shrink: 0;';
-                entry.appendChild(swatch);
-
-                // Text label (without count)
-                var label = document.createElement('span');
-                label.textContent = categoryName;
-                label.style.cssText = 'font-family: sans-serif; font-size: 11px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
-                label.title = categoryName;  // Tooltip for full text
-                entry.appendChild(label);
-
-                // Find all sponsors that belong to this category (by matching color)
-                var sponsorsInCategory = [];
-                for (var sponsorName in sponsorColors) {
-                    if (sponsorColors[sponsorName] === category.color) {
-                        sponsorsInCategory.push(sponsorName);
-                    }
-                }
-                sponsorsInCategory.sort(); // Alphabetical order
-
-                // Create sponsors list container (initially hidden)
-                var sponsorsList = document.createElement('div');
-                sponsorsList.className = 'legend-sponsors-list';
-                sponsorsList.style.cssText = 'display: none; padding-left: 20px;';
-
-                // Add individual sponsors
-                sponsorsInCategory.forEach(function (sponsorName) {
-                    var sponsorEntry = document.createElement('div');
-                    sponsorEntry.className = 'themeLegendEntry legend-sponsor';
-                    sponsorEntry.style.cssText = 'display: flex; align-items: center; padding: 2px 0; cursor: pointer; padding-left: 10px;';
-
-                    // Small color dot
-                    var sponsorSwatch = document.createElement('div');
-                    sponsorSwatch.style.cssText = 'width: 6px; height: 6px; background: ' + category.color + '; border-radius: 50%; margin-right: 5px; flex-shrink: 0;';
-                    sponsorEntry.appendChild(sponsorSwatch);
-
-                    // Sponsor name
-                    var sponsorLabel = document.createElement('span');
-                    sponsorLabel.textContent = sponsorName;
-                    sponsorLabel.style.cssText = 'font-family: sans-serif; font-size: 10px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
-                    sponsorLabel.title = sponsorName;
-                    sponsorEntry.appendChild(sponsorLabel);
-
-                    // Add hover effects to highlight related arcs by individual sponsor
-                    sponsorEntry.addEventListener('mouseover', function (e) {
-                        e.stopPropagation(); // Prevent category hover
-                        highlightArcsBySponsor(sponsorName);
-                    });
-                    sponsorEntry.addEventListener('mouseout', function (e) {
-                        e.stopPropagation();
-                        resetArcHighlight();
-                    });
-
-                    sponsorsList.appendChild(sponsorEntry);
-                });
-
-                // Add hover handlers to expand/collapse sponsors list
-                groupContainer.addEventListener('mouseenter', function () {
-                    sponsorsList.style.display = 'block';
-                    arrow.style.transform = 'rotate(90deg)';
-                    arrow.textContent = '▼';
-                });
-
-                groupContainer.addEventListener('mouseleave', function () {
-                    sponsorsList.style.display = 'none';
-                    arrow.style.transform = 'rotate(0deg)';
-                    arrow.textContent = '▶';
-                });
-
-                // Add hover effects to highlight related arcs by category
-                entry.addEventListener('mouseover', function (e) {
-                    // Only trigger if not hovering over a sponsor
-                    if (e.target.closest('.legend-sponsor')) return;
-                    highlightArcsByCategory(categoryName, category.color);
-                });
-                entry.addEventListener('mouseout', function (e) {
-                    if (e.target.closest('.legend-sponsor')) return;
-                    resetArcHighlight();
-                });
-
-                groupContainer.appendChild(entry);
-                groupContainer.appendChild(sponsorsList);
-                legendContainer.appendChild(groupContainer);
-            });
-        }
-    }
-
-    function highlightArcsBySponsor(sponsorName) {
-        const normalizedSponsor = normalizeKey(sponsorName);
-
-        d3.selectAll('.proposal-band').classed('dimmed', true).classed('highlighted', false);
-        d3.selectAll('.author-path').classed('dimmed', true).classed('highlighted', false);
-        d3.selectAll('.author-start-label').classed('dimmed', true).classed('highlighted', false);
-
-        // Find matching proposals
-        const matchingProposals = proposals.filter(p => normalizeKey(p.sponsor) === normalizedSponsor);
-        const matchingProposalIds = new Set(matchingProposals.map(p => p.id));
-        const matchingAuthors = new Set();
-        matchingProposals.forEach(p => p.authors.forEach(a => matchingAuthors.add(a)));
-
-        // Highlight matching bands
-        d3.selectAll('.proposal-band').each(function () {
-            const id = d3.select(this).attr('data-proposal');
-            if (matchingProposalIds.has(id)) {
-                d3.select(this).classed('dimmed', false).classed('highlighted', true);
-            }
-        });
-
-        // Highlight matching authors
-        d3.selectAll('.author-path').each(function () {
-            const author = d3.select(this).attr('data-author');
-            if (matchingAuthors.has(author)) {
-                d3.select(this).classed('dimmed', false).classed('highlighted', true);
-            }
-        });
-
-        d3.selectAll('.author-start-label').each(function () {
-            const author = d3.select(this).attr('data-author');
-            if (matchingAuthors.has(author)) {
-                d3.select(this).classed('dimmed', false).classed('highlighted', true);
-            }
-        });
-    }
-
-    function highlightArcsByCategory(categoryName, categoryColor) {
-        // Find all sponsors in this category
-        const matchingSponsors = new Set();
-        Object.keys(sponsorColors).forEach(key => {
-            if (sponsorColors[key] === categoryColor) {
-                matchingSponsors.add(normalizeKey(key));
-            }
-        });
-
-        d3.selectAll('.proposal-band').classed('dimmed', true).classed('highlighted', false);
-        d3.selectAll('.author-path').classed('dimmed', true).classed('highlighted', false);
-        d3.selectAll('.author-start-label').classed('dimmed', true).classed('highlighted', false);
-
-        // Find matching proposals
-        const matchingProposals = proposals.filter(p => matchingSponsors.has(normalizeKey(p.sponsor)));
-        const matchingProposalIds = new Set(matchingProposals.map(p => p.id));
-        const matchingAuthors = new Set();
-        matchingProposals.forEach(p => p.authors.forEach(a => matchingAuthors.add(a)));
-
-        // Highlight matching bands
-        d3.selectAll('.proposal-band').each(function () {
-            const id = d3.select(this).attr('data-proposal');
-            if (matchingProposalIds.has(id)) {
-                d3.select(this).classed('dimmed', false).classed('highlighted', true);
-            }
-        });
-
-        // Highlight matching authors
-        d3.selectAll('.author-path').each(function () {
-            const author = d3.select(this).attr('data-author');
-            if (matchingAuthors.has(author)) {
-                d3.select(this).classed('dimmed', false).classed('highlighted', true);
-            }
-        });
-
-        d3.selectAll('.author-start-label').each(function () {
-            const author = d3.select(this).attr('data-author');
-            if (matchingAuthors.has(author)) {
-                d3.select(this).classed('dimmed', false).classed('highlighted', true);
-            }
-        });
-    }
-
-    function resetArcHighlight() {
-        d3.selectAll('.proposal-band').classed('dimmed', false).classed('highlighted', false);
-        d3.selectAll('.author-path').classed('dimmed', false).classed('highlighted', false);
-        d3.selectAll('.author-start-label').classed('dimmed', false).classed('highlighted', false);
-    }
-
-    // Update Legend Title
-    document.querySelector('.legend-title').textContent = 'Sponsors';
+    let activeCategories = new Set();
+    let allCategoriesActive = true;
 
     const proposals = rawData.map(d => ({
         id: d.proposal_no,
@@ -304,7 +85,10 @@
         .domain([1, maxProposals])
         .range([config.pathStrokeWidthMin, config.pathStrokeWidthMax]);
 
-    console.log(`Proposals: ${proposals.length}, Authors: ${allAuthors.length}`);
+    const allCategories = Object.keys(legendConfig);
+    activeCategories = new Set(allCategories);
+
+    console.log(`Proposals: ${proposals.length}, Authors: ${allAuthors.length}, Categories: ${allCategories.length}`);
 
     // ============ CREATE SESSIONS (by month) ============
     const proposalsByMonth = d3.group(proposals, d => d3.timeMonth(d.date).getTime());
@@ -857,6 +641,8 @@
             .attr('stroke-width', isCollaboration ? 2 : 1.5)
             .attr('data-proposal', proposal.id)
             .attr('data-theme', proposal.theme)
+            .attr('data-sponsor', proposal.sponsor)
+            .attr('data-category', getSponsorCategory(proposal.sponsor))
             .attr('data-authors', proposal.authors.join(','))
             .style('opacity', 0)
             .on('mouseover', function (event) {
@@ -905,7 +691,7 @@
             <div class="tooltip-authors">
                 <strong>Authors:</strong> ${proposal.authors.join(', ')}
             </div>
-            ${proposal.theme ? `<div class="tooltip-theme" style="background: ${getSponsorColor(proposal.sponsor)};">${proposal.theme}</div>` : ''}
+            ${proposal.sponsor ? `<div class="tooltip-theme" style="background: ${getSponsorColor(proposal.sponsor)};">${proposal.sponsor}</div>` : ''}
         `)
             .style('left', Math.min(event.pageX + 15, window.innerWidth - 400) + 'px')
             .style('top', (event.pageY - 10) + 'px')
@@ -1056,8 +842,175 @@
         }
     });
 
-    // ============ LEGEND (Handled at start) ============
-    // Old theme filtering removed to match TimeArcs behavior
+    // ============ THEME FILTERING ============
+    // ============ CATEGORY FILTERING ============
+    function toggleCategory(category) {
+        if (allCategoriesActive) {
+            allCategoriesActive = false;
+            activeCategories.clear();
+            activeCategories.add(category);
+        } else if (activeCategories.has(category)) {
+            activeCategories.delete(category);
+            if (activeCategories.size === 0) {
+                allCategoriesActive = true;
+                activeCategories = new Set(allCategories);
+            }
+        } else {
+            activeCategories.add(category);
+            if (activeCategories.size === allCategories.length) {
+                allCategoriesActive = true;
+            }
+        }
+
+        updateVisibility();
+        updateLegendStyles();
+    }
+
+    function updateVisibility() {
+        d3.selectAll('.proposal-band').each(function () {
+            const node = d3.select(this);
+            const category = node.attr('data-category');
+            const isVisible = allCategoriesActive || activeCategories.has(category);
+            node.classed('theme-hidden', !isVisible);
+        });
+
+        authorPaths.forEach((points, author) => {
+            const authorProposals = proposals.filter(p => p.authors.includes(author));
+            const hasVisibleProposal = authorProposals.some(p =>
+                allCategoriesActive || activeCategories.has(getSponsorCategory(p.sponsor))
+            );
+
+            d3.selectAll(`.author-path[data-author="${author}"]`)
+                .classed('theme-hidden', !hasVisibleProposal);
+            d3.selectAll(`.author-start-label[data-author="${author}"]`)
+                .classed('theme-hidden', !hasVisibleProposal);
+        });
+    }
+
+    function updateLegendStyles() {
+        d3.selectAll('.legend-category-header').each(function () {
+            const item = d3.select(this);
+            const category = item.attr('data-category');
+            const isActive = allCategoriesActive || activeCategories.has(category);
+            item.classed('inactive', !isActive);
+        });
+    }
+
+    function highlightSponsor(sponsor) {
+        d3.selectAll('.proposal-band').each(function () {
+            const band = d3.select(this);
+            const bandSponsor = band.attr('data-sponsor');
+            if (bandSponsor === sponsor) {
+                band.classed('highlighted', true);
+                band.classed('dimmed', false);
+            } else {
+                band.classed('dimmed', true);
+                band.classed('highlighted', false);
+            }
+        });
+    }
+
+    function resetHighlight() {
+        d3.selectAll('.proposal-band')
+            .classed('highlighted', false)
+            .classed('dimmed', false);
+    }
+
+    // ============ LEGEND ============
+    const legendItems = d3.select('#legend-items');
+
+    const showAllBtn = legendItems.append('div')
+        .attr('class', 'legend-item legend-show-all active')
+        .on('click', function () {
+            allCategoriesActive = true;
+            activeCategories = new Set(allCategories);
+            updateVisibility();
+            updateLegendStyles();
+            d3.select(this).classed('active', true);
+        });
+
+    showAllBtn.append('span').text('Show All');
+
+    // Build legend from config
+    Object.entries(legendConfig).forEach(([categoryName, config], i) => {
+        const group = legendItems.append('div').attr('class', 'legend-group');
+
+        // Category Header
+        const header = group.append('div')
+            .attr('class', 'legend-item legend-category-header')
+            .attr('data-category', categoryName)
+            .style('opacity', 0)
+            .on('click', function () {
+                toggleCategory(categoryName);
+                d3.select('.legend-show-all').classed('active', allCategoriesActive);
+            });
+
+        header.append('div')
+            .attr('class', 'legend-color')
+            .style('background', config.color);
+
+        header.append('span')
+            .text(categoryName)
+            .style('font-weight', 'bold');
+
+        header.transition()
+            .duration(300)
+            .delay(i * 30)
+            .style('opacity', 1);
+
+        // Find sponsors in this category
+        const categorySponsors = Object.entries(sponsorColors)
+            .filter(([name, color]) => color === config.color)
+            .map(([name]) => name)
+            .sort();
+
+        if (categorySponsors.length > 0) {
+            const list = group.append('div')
+                .attr('class', 'legend-sponsors-list')
+                .style('display', 'none')
+                .style('padding-left', '20px')
+                .style('margin-top', '4px');
+
+            categorySponsors.forEach(sponsor => {
+                const item = list.append('div')
+                    .attr('class', 'legend-item legend-sponsor-item')
+                    .style('padding', '2px 8px')
+                    .on('click', function (event) {
+                        event.stopPropagation();
+                    })
+                    .on('mouseover', function () {
+                        highlightSponsor(sponsor);
+                    })
+                    .on('mouseout', function () {
+                        resetHighlight();
+                    });
+
+                item.append('div')
+                    .attr('class', 'legend-color')
+                    .style('width', '6px')
+                    .style('height', '6px')
+                    .style('border-radius', '50%')
+                    .style('background', config.color);
+
+                item.append('span')
+                    .text(sponsor)
+                    .style('font-size', '10px');
+            });
+
+            // Add expand arrow to header
+            header.insert('span', ':first-child')
+                .text('▶')
+                .style('font-size', '8px')
+                .style('margin-right', '4px')
+                .style('cursor', 'pointer')
+                .on('click', function (event) {
+                    event.stopPropagation();
+                    const isVisible = list.style('display') !== 'none';
+                    list.style('display', isVisible ? 'none' : 'block');
+                    d3.select(this).text(isVisible ? '▶' : '▼');
+                });
+        }
+    });
 
     console.log('StoryFlow visualization loaded with true convergence!');
     console.log(`Sessions: ${sessions.length}, Authors: ${allAuthors.length}, Proposals: ${proposals.length}`);

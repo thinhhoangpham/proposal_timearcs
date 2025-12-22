@@ -18,6 +18,21 @@ def format_name(name):
 # Format PI names to "FirstName LastName" format
 df['PI_formatted'] = df['PI'].apply(format_name)
 
+# Check for proposals with different total amounts per author
+print("Checking for proposals with different total amounts per author...")
+total_check = df.groupby('proposal_no')['total'].agg(['nunique', 'min', 'max', 'count'])
+different_totals = total_check[total_check['nunique'] > 1]
+if len(different_totals) > 0:
+    print(f"WARNING: Found {len(different_totals)} proposals with different total amounts per author:")
+    print(different_totals.head(10))
+    print("\nUsing 'max' to get the highest total for each proposal.")
+    print("If totals should be the same, please check your source data.\n")
+    # Use max if totals differ (could also use min or mean)
+    total_agg = 'max'
+else:
+    print("All proposals have consistent total amounts across authors.\n")
+    total_agg = 'first'  # If all the same, first is fine
+
 # Group by proposal_no and aggregate
 # Combine all PIs into a single Authors column
 aggregated = df.groupby('proposal_no').agg({
@@ -28,7 +43,7 @@ aggregated = df.groupby('proposal_no').agg({
     'PI_formatted': lambda x: ','.join(x),  # Combine all PIs with comma separator (no space after comma like in example)
     'credit': 'sum',  # Sum up credits
     'first': 'sum',  # Sum up first amounts
-    'total': 'first',  # Take first total (should be same for all rows of same proposal)
+    'total': total_agg,  # Use max if totals differ, first if they're all the same
     'theme': 'first'
 }).reset_index()
 

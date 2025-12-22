@@ -31,9 +31,9 @@ var topTermMode = 0;
 //Set up the force layout
 //Set up the force layout
 var force = d3.layout.force()
-    .charge(-40)
+    .charge(-300)  // Strong repulsion to keep unconnected nodes apart and prevent overlap
     .linkDistance(40)
-    .gravity(0.02)
+    .gravity(0.003)  // Very low gravity to allow spacing forces to dominate
     //.friction(0.5)
     .alpha(0.1)
     .size([width, height]);
@@ -80,12 +80,17 @@ var node_drag = d3.behavior.drag()
 
 var data, data2;
 
-// Using months instead of years for finer granularity
+// Using days instead of months for finest granularity
 var minYear = 2018;
 var minMonth = 1;  // January 2018
+var minDay = 1;    // First day
 var maxYear = 2025;
 var maxMonth = 12; // December 2025
-var numYear = ((maxYear - minYear) * 12) + (maxMonth - minMonth) + 1; // Total months
+var maxDay = 31;   // Last day
+// Calculate total days from start date to end date
+var minDate = new Date(minYear, minMonth - 1, minDay);
+var maxDate = new Date(maxYear, maxMonth - 1, maxDay);
+var numYear = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1; // Total days
 
 var sourceList = {};
 var numSource = {};
@@ -154,9 +159,17 @@ var PANEL_MAX_ITEMS = 30; // cap N for hover view
 var panelMode = 'all'; // 'all' | 'person'
 var savedAllPanelScrollTop = 0; // remember scroll position of the all-authors view
 
-// Clustering mode: 'connectivity' or 'theme'
-var clusteringMode = 'connectivity';
-var nodeThemes = {}; // Store theme information for each node
+// Inactive authors list
+var inactiveAuthors = {
+    "Jiang Zhou": true,
+    "Fang Jin": true,
+    "Michael Gelfond": true,
+    "Rattikorn Hewett": true,
+    "Zhenkai Zhang": true,
+    "Lin Chen": true,
+    "Sumaiya Shomaji": true
+};
+var excludeInactiveAuthors = true; // Default: hide inactive authors
 
 // Sponsor groups for streamgraph
 var sponsorGroups = []; // Array of sponsor group names
@@ -244,12 +257,14 @@ d3.tsv("data/publication.tsv", function(error, data_) {
             return;
         }
 
-        // Extract year and month from date_submitted (format: YYYY-MM-DD)
+        // Extract year, month, and day from date_submitted (format: YYYY-MM-DD)
         var yearValue = parseInt(d["date_submitted"].substring(0, 4));
         var monthValue = parseInt(d["date_submitted"].substring(5, 7));
-        // Calculate month offset from start date (minYear-minMonth)
-        var year = ((yearValue - minYear) * 12) + (monthValue - minMonth);
-        console.log("Time="+year + " (" + yearValue + "-" + monthValue + ")");
+        var dayValue = parseInt(d["date_submitted"].substring(8, 10));
+        // Calculate day offset from start date
+        var pubDate = new Date(yearValue, monthValue - 1, dayValue);
+        var year = Math.floor((pubDate - minDate) / (1000 * 60 * 60 * 24));
+        console.log("Time="+year + " days (" + yearValue + "-" + monthValue + "-" + dayValue + ")");
 
         // Use sponsor for color assignment
         if (d.sponsor) {
@@ -330,13 +345,28 @@ d3.tsv("data/publication.tsv", function(error, data_) {
     readTermsAndRelationships();
     computeNodes();
     computeLinks();
- 
-   //force.linkStrength(function(l) {
-   //     return 0.1;       
-   // });
-    
+
+    // Configure force layout based on connectivity
+    force.linkStrength(function(l) {
+        // Only strong connections pull nodes together
+        if (l.count <= 1) {
+            return 0.2; // Weak links for single connections
+        } else if (l.count === 2) {
+            return 0.5; // Moderate strength for 2 connections
+        } else {
+            return 0.8; // Strong links for 3+ connections
+        }
+    });
     force.linkDistance(function(l) {
-        return (10*(l.m-1));  
+        // Weak connections allow more distance
+        // Increased distances to give visual breathing room
+        if (l.count <= 1) {
+            return 100; // Longer distance for single connections
+        } else if (l.count === 2) {
+            return 60; // Medium distance for 2 connections
+        } else {
+            return 40; // Moderate distance for 3+ connections - maintain spacing
+        }
     });
     
     /// The second force directed layout ***********
@@ -530,6 +560,21 @@ node2.append("title")
             else if (d[searchTerm])
                 return d;
         });
+        
+        // Apply inactive authors filter if enabled
+        if (excludeInactiveAuthors) {
+            data2 = data2.filter(function(d) {
+                var authors = d["Authors"].split(",");
+                // Only include if all authors are active (none are inactive)
+                for (var i = 0; i < authors.length; i++) {
+                    var author = authors[i].trim();
+                    if (inactiveAuthors[author]) {
+                        return false; // Exclude this publication
+                    }
+                }
+                return true;
+            });
+        }
 
         console.log("data2="+data2.length);
         var selected  ={}
@@ -550,8 +595,15 @@ node2.append("title")
 
 
         var removeList = {};   // remove list **************
-
-         
+        
+        // Add inactive authors to remove list if filter is enabled
+        if (excludeInactiveAuthors) {
+            for (var inactiveAuthor in inactiveAuthors) {
+                if (inactiveAuthors[inactiveAuthor]) {
+                    removeList[inactiveAuthor] = true;
+                }
+            }
+        }
 
         termArray = [];
         for (var att in terms) {
@@ -726,7 +778,7 @@ node2.append("title")
             nod.group = termArray[i].category;
             nod.name = termArray[i].term;
             nod.max = termArray[i].max;
-            var maxMonthRelationship = termArray[i].maxYear;
+            var maxDayRelationship = termArray[i].maxYear;  // maxYear now stores day offset
             nod.isConnectedMaxYear = termArray[i].isConnectedMaxYear;
             nod.maxYear = termArray[i].isConnectedMaxYear;
             nod.year = termArray[i].isConnectedMaxYear;
@@ -887,64 +939,6 @@ node2.append("title")
         return components;
     }
 
-    // Calculate theme information for each node based on their publications
-    function calculateNodeThemes() {
-        nodeThemes = {};
-
-        for (var i = 0; i < numNode; i++) {
-            var nodeName = nodes[i].name;
-            nodeThemes[nodeName] = {};
-
-            // Count themes from publications
-            var pubs = authorPubs[nodeName] || [];
-            for (var j = 0; j < pubs.length; j++) {
-                var theme = pubs[j].theme;
-                if (theme) {
-                    if (!nodeThemes[nodeName][theme]) {
-                        nodeThemes[nodeName][theme] = 0;
-                    }
-                    nodeThemes[nodeName][theme]++;
-                }
-            }
-        }
-
-        console.log("Calculated themes for", Object.keys(nodeThemes).length, "nodes");
-
-        // Debug: Show sample theme data
-        var sampleCount = 0;
-        for (var name in nodeThemes) {
-            if (sampleCount < 3) {
-                console.log("Sample themes for", name, ":", nodeThemes[name]);
-                sampleCount++;
-            }
-        }
-    }
-
-    // Calculate theme similarity between two nodes (Jaccard similarity)
-    function calculateThemeSimilarity(name1, name2) {
-        if (!nodeThemes[name1] || !nodeThemes[name2]) return 0;
-
-        var themes1 = nodeThemes[name1];
-        var themes2 = nodeThemes[name2];
-
-        // Get all unique themes
-        var allThemes = {};
-        for (var theme in themes1) allThemes[theme] = true;
-        for (var theme in themes2) allThemes[theme] = true;
-
-        var intersection = 0;
-        var union = 0;
-
-        for (var theme in allThemes) {
-            var count1 = themes1[theme] || 0;
-            var count2 = themes2[theme] || 0;
-            intersection += Math.min(count1, count2);
-            union += Math.max(count1, count2);
-        }
-
-        return union > 0 ? intersection / union : 0;
-    }
-
     function computeLinks() {
         links = [];
         relationshipMaxMax2 =0;
@@ -970,7 +964,7 @@ node2.append("title")
                             nodes[j].connect.push(i)
 
                             if (m != nodes[i].maxYear){
-                                if (isContainedChild(nodes[i].childNodes,m)>=0){  // already have the child node for that month
+                                if (isContainedChild(nodes[i].childNodes,m)>=0){  // already have the child node for that day
                                     sourceNodeId =  nodes[i].childNodes[isContainedChild(nodes[i].childNodes,m)];
                                 }  
                                 else{  
@@ -1064,15 +1058,15 @@ node2.append("title")
             return sqrtScale(count);
         };
 
-        links.forEach(function(l) { 
+        links.forEach(function(l) {
             var term1 = nodes[l.source].name;
             var term2 = nodes[l.target].name;
-            var month = l.m;
+            var day = l.m;  // l.m stores day offset from start date
             // Use consistent ordering to match the key used in readTermsAndRelationships
             var key = term1 < term2 ? term1+"__"+term2 : term2+"__"+term1;
-            var count = relationship[key] && relationship[key][month] ? relationship[key][month] : 1;
+            var count = relationship[key] && relationship[key][day] ? relationship[key][day] : 1;
             l.count = count;
-            l.type = ttt[key] && ttt[key][month] ? ttt[key][month] : [];
+            l.type = ttt[key] && ttt[key][day] ? ttt[key][day] : [];
             // Ensure count is at least 1
             var clampedCount = Math.max(1, count);
             l.value = linkScale(clampedCount);
@@ -1082,34 +1076,31 @@ node2.append("title")
                 console.log("Arc with count > 1:", {
                     term1: term1,
                     term2: term2,
-                    month: month,
+                    day: day,
                     count: count,
                     value: l.value,
                     publications: l.type ? l.type.length : 0,
                     key: key,
-                    relationshipValue: relationship[key] ? relationship[key][month] : 'undefined'
+                    relationshipValue: relationship[key] ? relationship[key][day] : 'undefined'
                 });
             }
-            
+
             // Debug: log if count=1 but value is unexpectedly high
             if (count === 1 && l.value > 1.5) {
                 console.warn("Arc with count=1 has high value:", {
                     term1: term1,
                     term2: term2,
-                    month: month,
+                    day: day,
                     count: count,
                     value: l.value,
                     maxCount: maxCount,
                     key: key,
-                    relationshipValue: relationship[key] ? relationship[key][month] : 'undefined'
+                    relationshipValue: relationship[key] ? relationship[key][day] : 'undefined'
                 });
             }
         });  
 
         console.log("DONE links relationshipMaxMax2="+relationshipMaxMax2);
-
-        // Calculate theme information for each node
-        calculateNodeThemes();
 
         // Find connected components after links are computed
         var components = findConnectedComponents();
@@ -1178,7 +1169,7 @@ node2.append("title")
                     value: d.value,
                     source: d.source.name || nodes[d.source].name,
                     target: d.target.name || nodes[d.target].name,
-                    month: d.m
+                    day: d.m  // day offset from start date
                 });
             }
         });   
@@ -1782,7 +1773,7 @@ function mouseouted(d) {
     mouseoutedNode(d);
 }
 
-    // check if a node for a month m already exist.
+    // check if a node for a day offset m already exists.
     function isContainedChild(a, m) {
         if (a){
             for (var i=0; i<a.length;i++){
@@ -1794,7 +1785,7 @@ function mouseouted(d) {
         return -1;
     }
 
-     // check if a node for a month m already exist.
+     // check if a day offset m is already in the array.
     function isContainedInteger(a, m) {
         if (a){
             for (var i=0; i<a.length;i++){
@@ -1876,79 +1867,90 @@ function mouseouted(d) {
 
             // Custom forces for parent nodes only
             if (d.parentNode === undefined || d.parentNode < 0) {
-                // Force 1: Pull toward center (different behavior per mode)
-                if (clusteringMode === 'connectivity') {
-                    // Pull high-proposal authors toward vertical center
-                    var proposalScore = maxProposals > 0 ? (d.max || 0) / maxProposals : 0;
-                    var centerY = height / 2;
-                    var centerPull = (centerY - d.y) * proposalScore * 0.08;
-                    d.y += centerPull;
-                } else if (clusteringMode === 'theme') {
-                    // Weak centering to prevent excessive drift
-                    var centerY = height / 2;
-                    var centerPull = (centerY - d.y) * 0.02; // Very weak
-                    d.y += centerPull;
-                }
+                // Force 1: No center pull - focus on connections only
+                // Removed center pull to let connectivity forces dominate
 
-                // Force 2: Different clustering based on mode
-                if (clusteringMode === 'connectivity') {
-                    // Pull highly-connected authors toward each other
-                    // Authors with more connections are pulled toward the average Y of their connected peers
-                    if (d.connect && d.connect.length > 0) {
+                // Force 2: Pull HIGHLY-connected authors toward each other
+                // Nodes with few connections should not cluster strongly
+                if (d.connect && d.connect.length > 0) {
+                    var thisConnectivity = d.connect.length;
+                    var connectivityScore = maxConnectivity > 0 ? thisConnectivity / maxConnectivity : 0;
+
+                    // Only apply clustering force if node has above-average connectivity
+                    // This prevents weakly connected nodes from being pulled together
+                    var connectivityThreshold = 0.4; // Only cluster nodes with >40% of max connectivity
+                    if (connectivityScore >= connectivityThreshold) {
                         var avgConnectedY = 0;
                         var connectedCount = 0;
+                        var totalWeight = 0;
+
+                        // Only consider highly-connected neighbors for clustering
                         for (var i = 0; i < d.connect.length; i++) {
                             var connectedNodeId = d.connect[i];
-                            if (connectedNodeId < nodes.length && nodes[connectedNodeId].y) {
-                                avgConnectedY += nodes[connectedNodeId].y;
+                            if (connectedNodeId < nodes.length && nodes[connectedNodeId].y !== undefined) {
+                                var connectedNode = nodes[connectedNodeId];
+                                var neighborConnectivity = connectedNode.connect ? connectedNode.connect.length : 0;
+                                var neighborScore = maxConnectivity > 0 ? neighborConnectivity / maxConnectivity : 0;
+
+                                // Only weight highly-connected neighbors more
+                                // Weakly connected neighbors have less influence
+                                if (neighborScore >= connectivityThreshold) {
+                                    var weight = neighborConnectivity + 1; // Strong weight for highly connected
+                                    avgConnectedY += nodes[connectedNodeId].y * weight;
+                                    totalWeight += weight;
+                                } else {
+                                    // Weakly connected neighbors have minimal weight
+                                    var weight = 0.5;
+                                    avgConnectedY += nodes[connectedNodeId].y * weight;
+                                    totalWeight += weight;
+                                }
                                 connectedCount++;
                             }
                         }
-                        if (connectedCount > 0) {
-                            avgConnectedY /= connectedCount;
-                            var connectivityScore = maxConnectivity > 0 ? d.connect.length / maxConnectivity : 0;
-                            var clusterPull = (avgConnectedY - d.y) * connectivityScore * 0.06;
+
+                        if (connectedCount > 0 && totalWeight > 0) {
+                            avgConnectedY /= totalWeight;
+                            // Pull strength proportional to connectivity (no minimum floor)
+                            // Reduced pull strength to allow spacing forces to maintain separation
+                            var clusterPull = (avgConnectedY - d.y) * connectivityScore * 0.05;
                             d.y += clusterPull;
                         }
                     }
-                } else if (clusteringMode === 'theme') {
-                    // Pull authors with similar themes toward each other
-                    var avgSimilarY = 0;
-                    var totalSimilarity = 0;
-                    var similarNodes = 0;
-                    var topSimilarNodes = []; // Track top similar nodes for debugging
+                    // Nodes below threshold are not pulled together - they maintain separation
+                }
 
-                    for (var i = 0; i < numNode; i++) {
-                        if (i === d.id || nodes[i].parentNode >= 0) continue; // Skip self and child nodes
-
-                        var similarity = calculateThemeSimilarity(d.name, nodes[i].name);
-                        if (similarity > 0.05) { // Lower threshold for more grouping (was 0.1)
-                            avgSimilarY += nodes[i].y * similarity;
-                            totalSimilarity += similarity;
-                            similarNodes++;
-                            topSimilarNodes.push({name: nodes[i].name, sim: similarity});
-                        }
-                    }
-
-                    if (totalSimilarity > 0 && similarNodes > 0) {
-                        avgSimilarY /= totalSimilarity;
-                        // Strong force for theme clustering (no connectivity forces to fight against)
-                        var similarityScore = Math.min(totalSimilarity / 1.5, 1);
-                        var clusterPull = (avgSimilarY - d.y) * similarityScore * 0.2;
-                        d.y += clusterPull;
-
-                        // Debug specific authors to understand clustering behavior
-                        if (d.name === "Michael Gelfond" || d.name === "Yuanlin Zhang") {
-                            topSimilarNodes.sort(function(a,b) { return b.sim - a.sim; });
-                            console.log(d.name, "being pulled toward", topSimilarNodes.slice(0, 3), "with total pull:", clusterPull.toFixed(2));
+                // Force 3: Minimum spacing between all parent nodes to prevent name overlap
+                // This ensures visual breathing room even for strongly connected clusters
+                var minSpacing = 65; // Minimum vertical spacing between nodes (in pixels) - increased for readability
+                var spacingRepulsionStrength = 2.5; // Strong repulsion when too close - increased significantly
+                
+                for (var j = 0; j < numNode; j++) {
+                    if (j === d.id || nodes[j].parentNode >= 0) continue; // Skip self and child nodes
+                    
+                    var otherNode = nodes[j];
+                    if (otherNode.y === undefined) continue;
+                    
+                    var dy = d.y - otherNode.y;
+                    var absDy = Math.abs(dy);
+                    
+                    // If nodes are too close vertically, push them apart strongly
+                    if (absDy < minSpacing && absDy > 0) {
+                        // Stronger force calculation - exponential increase as nodes get closer
+                        var normalizedDistance = absDy / minSpacing;
+                        var pushForce = spacingRepulsionStrength * (1 - normalizedDistance) * (1 - normalizedDistance);
+                        if (dy > 0) {
+                            // Current node is below, push it down
+                            d.y += pushForce;
+                        } else {
+                            // Current node is above, push it up
+                            d.y -= pushForce;
                         }
                     }
                 }
 
-                // Force 3: Repulsion between different components
+                // Force 4: Repulsion between different components
                 // This separates strongly connected components
-                // Reduce this force in theme mode to allow theme-based clustering
-                if (window.components && window.numComponents > 1 && d.componentId !== undefined && clusteringMode === 'connectivity') {
+                if (window.components && window.numComponents > 1 && d.componentId !== undefined) {
                     var repulsionStrength = 0.15; // Adjust this to control separation strength
                     var minDistance = 100; // Minimum desired distance between components
                     
@@ -2124,62 +2126,29 @@ function mouseouted(d) {
         nodeG.selectAll(".nodeText")
             .attr("font-size", "12px");
 
-        // Calculate scores for each author based on proposals and connectivity
-        var termArray = [];
-        for (var i=0; i< numNode; i++) {
-            var e =  {};
-            e.y = nodes[i].y;
-            e.nodeId = i;
-            // Score combines:
-            // - max (total proposals over time) weighted 60%
-            // - isConnected (connectivity strength) weighted 40%
-            // Normalize both to 0-1 range
-            var maxProposals = nodes[i].max || 0;
-            var connectivity = 0;
-            if (nodes[i].connect && nodes[i].connect.length > 0) {
-                connectivity = nodes[i].connect.length;
-            }
-            e.proposalCount = maxProposals;
-            e.linkCount = connectivity;
-            // Combined score (higher = more important)
-            e.score = (maxProposals * 0.6) + (connectivity * 0.4);
-            termArray.push(e);
-        }
-
-        // Sort by score descending (highest scores first)
-        termArray.sort(function (a, b) {
-            if (a.score > b.score) return -1;
-            if (a.score < b.score) return 1;
-            // Tie-breaker: use current Y position
-            if (a.y > b.y) return 1;
-            if (a.y < b.y) return -1;
-            return 0;
-        });
-
-        // Position authors so highest scores are in the middle vertically
-        // Use a distribution that places top-scored authors near center
-        var step = 20;
-        var totalH = termArray.length * step;
-        var centerY = height / 2;
-
-        // Create a "middle-out" ordering: highest scores in center, lower scores at edges
-        var middleOutOrder = [];
-        var mid = Math.floor(termArray.length / 2);
-
-        for (var i = 0; i < termArray.length; i++) {
-            if (i % 2 === 0) {
-                // Even indices go to the right/bottom of center
-                middleOutOrder.push(mid + Math.floor(i / 2));
-            } else {
-                // Odd indices go to the left/top of center
-                middleOutOrder.push(mid - Math.ceil(i / 2));
+        // Preserve the Y positions from force layout
+        // The force layout has already clustered connected nodes together
+        // Only ensure nodes are within bounds and apply minimal smoothing
+        var minY = Infinity, maxY = -Infinity;
+        for (var i = 0; i < numNode; i++) {
+            if (nodes[i].parentNode === undefined || nodes[i].parentNode < 0) {
+                if (nodes[i].y < minY) minY = nodes[i].y;
+                if (nodes[i].y > maxY) maxY = nodes[i].y;
             }
         }
 
-        // Assign Y positions: highest score authors in the middle
-        for (var i = 0; i < termArray.length; i++) {
-            var position = middleOutOrder[i];
-            nodes[termArray[i].nodeId].y = (height - totalH) / 2 + position * step;
+        // If nodes are clustered but outside bounds, scale them to fit
+        if (maxY > minY && (minY < 0 || maxY > height)) {
+            var scale = (height - 40) / (maxY - minY); // Leave 20px margin on each side
+            var offset = 20 - minY * scale;
+            for (var i = 0; i < numNode; i++) {
+                if (nodes[i].parentNode === undefined || nodes[i].parentNode < 0) {
+                    nodes[i].y = nodes[i].y * scale + offset;
+                    // Keep within bounds
+                    if (nodes[i].y < 10) nodes[i].y = 10;
+                    if (nodes[i].y > height - 10) nodes[i].y = height - 10;
+                }
+            }
         }
 
         force.stop();
@@ -2298,65 +2267,22 @@ function mouseouted(d) {
             .replace(/'/g, '&#39;');
     }
 
-    // =============== Clustering Mode Switching ===============
-    function switchToConnectivityClustering() {
-        if (clusteringMode === 'connectivity') return; // Already in this mode
-
-        console.log("Switching to connectivity-based clustering");
-        clusteringMode = 'connectivity';
-
-        // Update button states
-        document.getElementById('btn-connectivity').classList.add('active');
-        document.getElementById('btn-theme').classList.remove('active');
-
-        // Restart force simulation with more energy to apply new clustering
-        force.alpha(0.3); // Higher alpha for more movement
-        force.resume();
+    // Function to toggle inactive authors filter
+    function toggleInactiveAuthorsFilter() {
+        excludeInactiveAuthors = document.getElementById('exclude-inactive-checkbox').checked;
+        console.log("Exclude inactive authors:", excludeInactiveAuthors);
+        
+        // Recompute the visualization with the new filter
+        readTermsAndRelationships();
+        computeNodes();
+        computeLinks();
+        force.nodes(nodes)
+            .links(links)
+            .start();
     }
+    
+    window.toggleInactiveAuthorsFilter = toggleInactiveAuthorsFilter;
 
-    function switchToThemeClustering() {
-        if (clusteringMode === 'theme') return; // Already in this mode
-
-        console.log("Switching to theme-based clustering");
-        clusteringMode = 'theme';
-
-        // Update button states
-        document.getElementById('btn-theme').classList.add('active');
-        document.getElementById('btn-connectivity').classList.remove('active');
-
-        // Debug: Log theme similarities including specific pairs
-        console.log("=== Theme Similarity Debug ===");
-
-        // Check specific pair: Michael Gelfond and Yuanlin Zhang
-        var michael = "Michael Gelfond";
-        var yuanlin = "Yuanlin Zhang";
-        var simMY = calculateThemeSimilarity(michael, yuanlin);
-        console.log("Similarity:", michael, "↔", yuanlin, "=", simMY.toFixed(3));
-        if (nodeThemes[michael]) console.log(michael, "themes:", nodeThemes[michael]);
-        if (nodeThemes[yuanlin]) console.log(yuanlin, "themes:", nodeThemes[yuanlin]);
-
-        // Show sample similarities
-        var debugCount = 0;
-        for (var i = 0; i < Math.min(5, numNode); i++) {
-            for (var j = i + 1; j < Math.min(10, numNode); j++) {
-                var sim = calculateThemeSimilarity(nodes[i].name, nodes[j].name);
-                if (sim > 0) {
-                    console.log("Similarity:", nodes[i].name, "↔", nodes[j].name, "=", sim.toFixed(3));
-                    debugCount++;
-                    if (debugCount >= 8) break;
-                }
-            }
-            if (debugCount >= 8) break;
-        }
-
-        // Restart force simulation with more energy to apply new clustering
-        force.alpha(0.3); // Higher alpha for more movement
-        force.resume();
-    }
-
-    // Make functions globally accessible
-    window.switchToConnectivityClustering = switchToConnectivityClustering;
-    window.switchToThemeClustering = switchToThemeClustering;
 
 
 

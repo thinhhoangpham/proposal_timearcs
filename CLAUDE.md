@@ -63,19 +63,20 @@ The `data/publication.tsv` file has these columns:
 **Global Variables**:
 - `nodes`: Author nodes positioned by force layout
 - `links`: Arcs connecting collaborating authors at specific time points
-- `terms`: Object mapping author names to publication counts by month
-- `relationship`: Object tracking co-authorship relationships by month (key format: "author1__author2")
+- `terms`: Object mapping author names to publication counts by day
+- `relationship`: Object tracking co-authorship relationships by day (key format: "author1__author2")
 - `authorPubs`: Map of author name → array of publication objects (used by right panel)
 - `data`: Raw TSV data loaded from `data/publication.tsv`
 
 **Time Representation**:
-- Years are stored as month offsets from `minYear-minMonth` (default: January 2018)
-- Each time unit represents one month (2018-2025 = ~84 months)
-- Arc positions use `l.m` to indicate which month a collaboration occurred
+- Time is stored as day offsets from `minDate` (default: January 1, 2018)
+- Each time unit represents one day (2018-01-01 to 2025-12-31 = ~2922 days)
+- Arc positions use `l.m` to indicate which day (offset) a collaboration occurred
+- Despite the variable name "year" in the code, it actually stores day offsets for daily granularity
 
 **Node Types**:
 - Parent nodes: Main author positions (top N authors by connectivity)
-- Child nodes: Created dynamically for authors at different time points when they have multiple collaborations across different months
+- Child nodes: Created dynamically for authors at different time points when they have multiple collaborations across different days
 
 ### Force Layout
 
@@ -191,8 +192,13 @@ Edit `pubJavascripts/myscripts/sponsorsColors.json`:
 ```javascript
 var minYear = 2018;
 var minMonth = 1;
+var minDay = 1;
 var maxYear = 2025;
 var maxMonth = 12;
+var maxDay = 31;
+var minDate = new Date(minYear, minMonth - 1, minDay);
+var maxDate = new Date(maxYear, maxMonth - 1, maxDay);
+var numYear = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24)) + 1; // Total days
 var numNode = Math.min(50, termArray.length);  // Max authors shown
 var PANEL_MAX_ITEMS = 30;  // Max publications shown per author in hover view
 ```
@@ -212,9 +218,9 @@ var PANEL_MAX_ITEMS = 30;  // Max publications shown per author in hover view
 - Stroke width is forced to 1.2 in rendering even if d.value differs
 
 ### Time Scale
-- Monthly granularity (not yearly) for finer temporal resolution
-- `xScale` maps month offsets to pixel positions
-- Timeline markers drawn at year boundaries (January of each year)
+- Daily granularity for finest temporal resolution
+- `xScale` maps day offsets to pixel positions
+- Timeline markers drawn at year boundaries (January 1st of each year)
 
 ### Memory and Performance
 - Top 200 authors considered for connectivity analysis

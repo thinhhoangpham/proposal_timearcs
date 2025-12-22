@@ -509,10 +509,12 @@ function removeColorLegend() {
  }
 }
 function drawTimeLegend() {
-  // Display timeline markers for each year (at month 0 of each year)
+  // Display timeline markers for each year (at January 1st of each year)
   for (var yearIdx = minYear; yearIdx <= maxYear; yearIdx++) {
-    var monthOffset = (yearIdx - minYear) * 12;
-    var xx = xStep + xScale(monthOffset);
+    // Calculate day offset from minDate to January 1st of this year
+    var yearDate = new Date(yearIdx, 0, 1);  // January 1st
+    var dayOffset = Math.floor((yearDate - minDate) / (1000 * 60 * 60 * 24));
+    var xx = xStep + xScale(dayOffset);
 
     svg.append("line")
       .style("stroke", "#00a")

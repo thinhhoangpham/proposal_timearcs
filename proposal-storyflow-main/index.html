@@ -11,7 +11,12 @@
 <body>
     <div class="container">
         <div class="legend">
-            <div class="legend-title">Sponsors</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div class="legend-title" style="margin-bottom: 0;">Research Sponsors</div>
+                <button onclick="window.location.href='../index.html'"
+                    style="padding: 4px 8px; font-size: 11px; cursor: pointer; background: #fff; border: 1px solid #ccc; border-radius: 4px;">Back
+                    to TimeArcs</button>
+            </div>
             <div class="legend-items" id="legend-items"></div>
         </div>
 
@@ -23,7 +28,7 @@
     <div class="tooltip" id="tooltip"></div>
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
 </body>
 
 </html>

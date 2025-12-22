@@ -45,10 +45,9 @@ body {
 
 .legend-items {
     display: flex;
-    flex-direction: row;
     flex-wrap: wrap;
-    gap: 15px;
-    align-items: flex-start;
+    gap: 6px 12px;
+    align-items: center;
 }
 
 .legend-item {
@@ -103,50 +102,6 @@ body {
     border-radius: 3px;
     flex-shrink: 0;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* TimeArcs Legend Styles Ported */
-.legend-group {
-    position: relative;
-    margin-right: 10px;
-    margin-bottom: 4px;
-}
-
-.themeLegendEntry {
-    transition: background-color 0.2s ease;
-}
-
-.themeLegendEntry:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-    border-radius: 3px;
-}
-
-.legend-category {
-    font-weight: 600;
-}
-
-.legend-arrow {
-    user-select: none;
-}
-
-.legend-sponsors-list {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    background: white;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    padding: 5px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    min-width: 200px;
-    max-height: 300px;
-    overflow-y: auto;
-    display: none;
-}
-
-.legend-sponsor {
-    font-size: 10px !important;
 }
 
 /* SVG Container - fills remaining space */

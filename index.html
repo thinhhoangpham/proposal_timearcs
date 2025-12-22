@@ -3,74 +3,41 @@
 
 <body>
 
-	<div id="app">
-		<div id="chart"></div>
-		<div id="clustering-controls">
-			<label class="clustering-label">Clustering Mode:</label>
-			<button id="btn-connectivity" class="clustering-btn active" onclick="switchToConnectivityClustering()">
-				By Connectivity
-			</button>
-			<button id="btn-theme" class="clustering-btn" onclick="switchToThemeClustering()">
-				By Theme
-			</button>
-			<button id="btn-storyflow" class="clustering-btn" onclick="toggleStoryFlow(true)">
-				StoryFlow
-			</button>
+<div id="app">
+	<div id="chart"></div>
+	<div id="clustering-controls">
+		<label class="filter-label">
+			<input type="checkbox" id="exclude-inactive-checkbox" checked onchange="toggleInactiveAuthorsFilter()" />
+			Exclude Inactive Authors
+		</label>
+		<button class="clustering-btn" onclick="window.location.href='proposal-storyflow-main/index.html'">Switch to StoryFlow</button>
+	</div>
+	<aside id="pub-panel" aria-label="Publications panel">
+		<div class="pub-panel__header">Proposals</div>
+		<div class="pub-panel__body">
+			<div id="pub-panel-content" class="pub-panel__content"></div>
+			<div id="legend-container" class="pub-panel__legend"></div>
 		</div>
-		<aside id="pub-panel" aria-label="Publications panel">
-			<div class="pub-panel__header">Proposals</div>
-			<div class="pub-panel__body">
-				<div id="pub-panel-content" class="pub-panel__content"></div>
-				<div id="legend-container" class="pub-panel__legend"></div>
-			</div>
-		</aside>
+	</aside>
+  
+	<!-- Optional search UI (if used elsewhere) -->
+	<input id="search" type="text" style="display:none" />
+</div>
 
-		<!-- Optional search UI (if used elsewhere) -->
-		<input id="search" type="text" style="display:none" />
-	</div>
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script src="d3.v3.min.js"></script>
+<script src="d3.tip.v0.6.3.js"></script>
+<script src="pubJavascripts/javascripts/fisheye.js"></script>
+<script src="pubJavascripts/myscripts/util.js"></script>
+<script src="pubJavascripts/myscripts/sliderRelationship.js"></script>
+<script src="pubJavascripts/myscripts/sliderRadius.js"></script>
+<script src="pubJavascripts/myscripts/streamGraph.js"></script>
+<script src="pubJavascripts/myscripts/proposalCircles.js"></script>
+<script src="pubJavascripts/myscripts/main.js"></script>
 
-	<div id="storyflow-container"
-		style="display:none; width:100%; height:100vh; position:absolute; top:0; left:0; background:white; z-index:1000;">
-		<iframe id="storyflow-frame" style="width:100%; height:100%; border:none;"></iframe>
-		<button onclick="toggleStoryFlow(false)"
-			style="position:absolute; top:10px; right:10px; z-index:1001; padding: 8px 16px; background: #f0f0f0; border: 1px solid #ccc; cursor: pointer;">
-			Back to TimeArcs
-		</button>
-	</div>
-
-	<script>
-		function toggleStoryFlow(show) {
-			const app = document.getElementById('app');
-			const container = document.getElementById('storyflow-container');
-			const frame = document.getElementById('storyflow-frame');
-
-			if (show) {
-				app.style.display = 'none';
-				container.style.display = 'block';
-				if (!frame.src) {
-					frame.src = 'proposal-storyflow-main/index.html';
-				}
-			} else {
-				app.style.display = 'block';
-				container.style.display = 'none';
-			}
-		}
-	</script>
-
-	<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-	<script src="d3.v3.min.js"></script>
-	<script src="d3.tip.v0.6.3.js"></script>
-	<script src="pubJavascripts/javascripts/fisheye.js"></script>
-	<script src="pubJavascripts/myscripts/util.js"></script>
-	<script src="pubJavascripts/myscripts/sliderRelationship.js"></script>
-	<script src="pubJavascripts/myscripts/sliderRadius.js"></script>
-	<script src="pubJavascripts/myscripts/streamGraph.js"></script>
-	<script src="pubJavascripts/myscripts/proposalCircles.js"></script>
-	<script src="pubJavascripts/myscripts/main.js"></script>
-
-	<script type='text/javascript' src="//code.jquery.com/ui/1.11.0/jquery-ui.min.js"> </script>
-	<link href="pubJavascripts/styles/timeArcs.css" rel="stylesheet" type="text/css" />
-	<link href="pubJavascripts/styles/jquery-ui.css" rel="stylesheet" type="text/css" />
+<script type='text/javascript' src="//code.jquery.com/ui/1.11.0/jquery-ui.min.js"> </script>
+<link href="pubJavascripts/styles/timeArcs.css" rel="stylesheet" type="text/css" />
+<link href="pubJavascripts/styles/jquery-ui.css" rel="stylesheet" type="text/css" />
 
 
 </body>

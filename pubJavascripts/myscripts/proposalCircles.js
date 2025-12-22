@@ -7,7 +7,191 @@ var circleRadiusScale;
 var proposalCirclesGroup;
 
 /**
- * Render circles for all proposals, grouped by sponsor and month
+ * Find all proposals matching author, sponsor group, and day offset
+ */
+function findProposalsForCircle(authorName, groupName, dayOffset) {
+    var matchingProposals = [];
+    
+    if (!data || !data.length) {
+        return matchingProposals;
+    }
+    
+    // Iterate through all proposals
+    for (var i = 0; i < data.length; i++) {
+        var proposal = data[i];
+        
+        // Skip rows with missing or invalid date_submitted
+        if (!proposal.date_submitted || proposal.date_submitted.length < 10) {
+            continue;
+        }
+        
+        // Calculate day offset for this proposal (same method as in main.js)
+        var yearValue = parseInt(proposal.date_submitted.substring(0, 4));
+        var monthValue = parseInt(proposal.date_submitted.substring(5, 7));
+        var dayValue = parseInt(proposal.date_submitted.substring(8, 10));
+        var pubDate = new Date(yearValue, monthValue - 1, dayValue);
+        var proposalDayOffset = Math.floor((pubDate - minDate) / (1000 * 60 * 60 * 24));
+        
+        // Check if day offset matches
+        if (proposalDayOffset !== dayOffset) {
+            continue;
+        }
+        
+        // Check if author is in the proposal
+        if (!proposal.Authors) {
+            continue;
+        }
+        var authors = proposal.Authors.split(",").map(function(a) { return a.trim(); });
+        if (authors.indexOf(authorName) < 0) {
+            continue;
+        }
+        
+        // Check if sponsor belongs to the group
+        var proposalSponsor = proposal.sponsor || "";
+        var proposalGroup = getSponsorGroup(proposalSponsor);
+        if (proposalGroup !== groupName) {
+            continue;
+        }
+        
+        // Add this proposal
+        matchingProposals.push({
+            proposal_no: proposal.proposal_no || "",
+            title: proposal.title || "",
+            date_submitted: proposal.date_submitted || "",
+            sponsor: proposalSponsor,
+            theme: proposal.theme || ""
+        });
+    }
+    
+    return matchingProposals;
+}
+
+/**
+ * Create and show tooltip with proposal details
+ */
+function showProposalTooltip(d, proposals) {
+    // Remove any existing tooltip
+    d3.selectAll(".proposal-tooltip").remove();
+    
+    if (!proposals || proposals.length === 0) {
+        return;
+    }
+    
+    // Create tooltip container
+    var tooltip = d3.select("body").append("div")
+        .attr("class", "proposal-tooltip")
+        .style("position", "absolute")
+        .style("background", "white")
+        .style("border", "1px solid #ccc")
+        .style("border-radius", "4px")
+        .style("padding", "10px")
+        .style("box-shadow", "0 2px 8px rgba(0,0,0,0.2)")
+        .style("z-index", "1000")
+        .style("max-width", "500px")
+        .style("max-height", "400px")
+        .style("overflow-y", "auto")
+        .style("font-family", "sans-serif")
+        .style("font-size", "12px");
+    
+    // Add header
+    var header = tooltip.append("div")
+        .style("font-weight", "bold")
+        .style("margin-bottom", "8px")
+        .style("border-bottom", "1px solid #eee")
+        .style("padding-bottom", "5px");
+    
+    header.append("span")
+        .text(d.group + " - " + d.author);
+    header.append("span")
+        .style("margin-left", "10px")
+        .style("color", "#666")
+        .style("font-weight", "normal")
+        .text("(" + proposals.length + " proposal" + (proposals.length > 1 ? "s" : "") + ")");
+    
+    // Add date
+    if (proposals.length > 0 && proposals[0].date_submitted) {
+        var dateStr = proposals[0].date_submitted;
+        tooltip.append("div")
+            .style("color", "#666")
+            .style("font-size", "11px")
+            .style("margin-bottom", "8px")
+            .text(dateStr);
+    }
+    
+    // Add proposal list
+    var list = tooltip.append("div");
+    
+    proposals.forEach(function(p, i) {
+        var item = list.append("div")
+            .style("margin-bottom", "8px")
+            .style("padding-bottom", "8px")
+            .style("border-bottom", i < proposals.length - 1 ? "1px solid #f0f0f0" : "none");
+        
+        // Proposal number with sponsor color
+        if (p.proposal_no) {
+            item.append("span")
+                .style("font-weight", "bold")
+                .style("color", getColor(p.sponsor))
+                .style("margin-right", "5px")
+                .text(p.proposal_no);
+        }
+        
+        // Title
+        if (p.title) {
+            item.append("span")
+                .style("color", "#000")
+                .text(p.title);
+        }
+    });
+    
+    // Position tooltip near the circle
+    var tooltipWidth = 500;
+    
+    // Get SVG element and its position
+    var svgElement = document.getElementById('chart');
+    if (!svgElement) return;
+    
+    var svgRect = svgElement.getBoundingClientRect();
+    
+    // Convert circle position (SVG coordinates) to page coordinates
+    var circleX = d.x;
+    var circleY = d.y;
+    
+    // Get mouse position in page coordinates
+    var mouseX = d3.event ? d3.event.pageX : (svgRect.left + circleX);
+    var mouseY = d3.event ? d3.event.pageY : (svgRect.top + circleY);
+    
+    // Calculate tooltip height after it's been added to DOM
+    var tooltipHeight = Math.min(400, tooltip.node().getBoundingClientRect().height);
+    
+    // Position tooltip to the right of the mouse/circle, or left if too close to edge
+    var xPos = mouseX + 15;
+    var yPos = mouseY - tooltipHeight / 2;
+    
+    // Adjust if tooltip would go off screen
+    if (xPos + tooltipWidth > window.innerWidth) {
+        xPos = mouseX - tooltipWidth - 15;
+    }
+    if (yPos < 0) {
+        yPos = 10;
+    }
+    if (yPos + tooltipHeight > window.innerHeight) {
+        yPos = window.innerHeight - tooltipHeight - 10;
+    }
+    
+    tooltip.style("left", xPos + "px")
+        .style("top", yPos + "px");
+}
+
+/**
+ * Hide proposal tooltip
+ */
+function hideProposalTooltip() {
+    d3.selectAll(".proposal-tooltip").remove();
+}
+
+/**
+ * Render circles for all proposals, grouped by sponsor and day
  * Larger circles (more proposals) are drawn first to prevent covering smaller circles
  */
 function renderProposalCircles() {
@@ -45,23 +229,27 @@ function renderProposalCircles() {
                 var groupData = node.sponsorGroupsData[groupName];
                 var groupColor = sponsorGroupColors[groupName] || "#999";
 
-                // For each month
-                for (var month = 0; month < numYear; month++) {
-                    if (!groupData[month] || !groupData[month].value || groupData[month].value === 0) {
+                // For each day (numYear now represents total days)
+                for (var dayOffset = 0; dayOffset < numYear; dayOffset++) {
+                    if (!groupData[dayOffset] || !groupData[dayOffset].value || groupData[dayOffset].value === 0) {
                         continue;
                     }
 
-                    var count = groupData[month].value;
+                    var count = groupData[dayOffset].value;
+                    
+                    // Find matching proposals for this circle
+                    var proposals = findProposalsForCircle(node.name, groupName, dayOffset);
 
                     allCircles.push({
                         author: node.name,
                         authorNode: node,
                         group: groupName,
-                        month: month,
+                        dayOffset: dayOffset,
                         count: count,
                         color: groupColor,
-                        x: xStep + xScale(month),
-                        y: node.y
+                        x: xStep + xScale(dayOffset),
+                        y: node.y,
+                        proposals: proposals  // Store proposals with circle data
                     });
                 }
             });
@@ -103,8 +291,16 @@ function renderProposalCircles() {
                     .style("fill-opacity", 0.95)
                     .style("stroke", d.color)
                     .style("stroke-width", 1.5);
+                
+                // Show tooltip with all proposals
+                if (d.proposals && d.proposals.length > 0) {
+                    showProposalTooltip(d, d.proposals);
+                }
             })
             .on("mouseout", function(d) {
+                // Hide tooltip
+                hideProposalTooltip();
+                
                 // Check if this circle belongs to a currently hovered author
                 var currentAuthor = d3.select(this).attr("data-author");
                 var isHighlighted = false;
@@ -128,9 +324,15 @@ function renderProposalCircles() {
                 }
             });
         
-        // Add title elements
+        // Add title elements (fallback for browsers that don't support custom tooltip)
         circles.append("title")
             .text(function(d) {
+                if (d.proposals && d.proposals.length > 0) {
+                    var titles = d.proposals.map(function(p) {
+                        return (p.proposal_no || "") + ": " + (p.title || "");
+                    }).join("\n");
+                    return d.group + " - " + d.author + "\n" + d.count + " proposal" + (d.count > 1 ? "s" : "") + "\n\n" + titles;
+                }
                 return d.group + " - " + d.author + "\n" + d.count + " proposal" + (d.count > 1 ? "s" : "");
             });
         
