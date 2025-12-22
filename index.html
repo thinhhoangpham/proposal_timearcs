@@ -3,41 +3,43 @@
 
 <body>
 
-<div id="app">
-	<div id="chart"></div>
-	<div id="clustering-controls">
-		<label class="filter-label">
-			<input type="checkbox" id="exclude-inactive-checkbox" checked onchange="toggleInactiveAuthorsFilter()" />
-			Exclude Inactive Authors
-		</label>
-		<button class="clustering-btn" onclick="window.location.href='proposal-storyflow-main/index.html'">Switch to StoryFlow</button>
-	</div>
-	<aside id="pub-panel" aria-label="Publications panel">
-		<div class="pub-panel__header">Proposals</div>
-		<div class="pub-panel__body">
-			<div id="pub-panel-content" class="pub-panel__content"></div>
-			<div id="legend-container" class="pub-panel__legend"></div>
+	<div id="app">
+		<div id="chart"></div>
+		<div id="clustering-controls">
+			<label class="filter-label">
+				<input type="checkbox" id="exclude-inactive-checkbox" checked
+					onchange="toggleInactiveAuthorsFilter()" />
+				Exclude Inactive Authors
+			</label>
+			<button class="clustering-btn" onclick="window.location.href='proposal-storyflow-main/index.html'">Switch to
+				StoryFlow</button>
 		</div>
-	</aside>
-  
-	<!-- Optional search UI (if used elsewhere) -->
-	<input id="search" type="text" style="display:none" />
-</div>
+		<aside id="pub-panel" aria-label="Publications panel">
+			<div class="pub-panel__header">Proposals</div>
+			<div class="pub-panel__body">
+				<div id="pub-panel-content" class="pub-panel__content"></div>
+				<div id="legend-container" class="pub-panel__legend"></div>
+			</div>
+		</aside>
 
-<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-<script src="d3.v3.min.js"></script>
-<script src="d3.tip.v0.6.3.js"></script>
-<script src="pubJavascripts/javascripts/fisheye.js"></script>
-<script src="pubJavascripts/myscripts/util.js"></script>
-<script src="pubJavascripts/myscripts/sliderRelationship.js"></script>
-<script src="pubJavascripts/myscripts/sliderRadius.js"></script>
-<script src="pubJavascripts/myscripts/streamGraph.js"></script>
-<script src="pubJavascripts/myscripts/proposalCircles.js"></script>
-<script src="pubJavascripts/myscripts/main.js"></script>
+		<!-- Optional search UI (if used elsewhere) -->
+		<input id="search" type="text" style="display:none" />
+	</div>
 
-<script type='text/javascript' src="//code.jquery.com/ui/1.11.0/jquery-ui.min.js"> </script>
-<link href="pubJavascripts/styles/timeArcs.css" rel="stylesheet" type="text/css" />
-<link href="pubJavascripts/styles/jquery-ui.css" rel="stylesheet" type="text/css" />
+	<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+	<script src="d3.v3.min.js"></script>
+	<script src="d3.tip.v0.6.3.js"></script>
+	<script src="pubJavascripts/javascripts/fisheye.js"></script>
+	<script src="pubJavascripts/myscripts/util.js"></script>
+	<script src="pubJavascripts/myscripts/sliderRelationship.js"></script>
+	<script src="pubJavascripts/myscripts/sliderRadius.js"></script>
+	<script src="pubJavascripts/myscripts/streamGraph.js"></script>
+	<script src="pubJavascripts/myscripts/proposalCircles.js"></script>
+	<script src="pubJavascripts/myscripts/main.js?v=9"></script>
+
+	<script type='text/javascript' src="//code.jquery.com/ui/1.11.0/jquery-ui.min.js"> </script>
+	<link href="pubJavascripts/styles/timeArcs.css" rel="stylesheet" type="text/css" />
+	<link href="pubJavascripts/styles/jquery-ui.css" rel="stylesheet" type="text/css" />
 
 
 </body>

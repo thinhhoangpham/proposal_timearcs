@@ -1,5 +1,5 @@
 //Constants for the SVG (full width, no left margin for legend)
-var margin = {top: 0, right: 15, bottom: 5, left: 15};  // minimal margins
+var margin = { top: 0, right: 15, bottom: 5, left: 15 };  // minimal margins
 var chartEl = document.getElementById('chart');
 var containerWidth = chartEl ? chartEl.clientWidth : document.body.clientWidth;
 var width = containerWidth - margin.left - margin.right;
@@ -49,33 +49,33 @@ var force2 = d3.layout.force()
     .linkDistance(80)
     .gravity(0.08)
     .alpha(0.12)
-    .size([width, height]);    
+    .size([width, height]);
 
 var node_drag = d3.behavior.drag()
-        .on("dragstart", dragstart)
-        .on("drag", dragmove)
-        .on("dragend", dragend);
+    .on("dragstart", dragstart)
+    .on("drag", dragmove)
+    .on("dragend", dragend);
 
-    function dragstart(d, i) {
-        force.stop() // stops the force auto positioning before you start dragging
-    }
+function dragstart(d, i) {
+    force.stop() // stops the force auto positioning before you start dragging
+}
 
-    function dragmove(d, i) {
-        d.px += d3.event.dx;
-        d.py += d3.event.dy;
-        d.x += d3.event.dx;
-        d.y += d3.event.dy; 
-    }
+function dragmove(d, i) {
+    d.px += d3.event.dx;
+    d.py += d3.event.dy;
+    d.x += d3.event.dx;
+    d.y += d3.event.dy;
+}
 
-    function dragend(d, i) {
-        d.fixed = true; // of course set the node to fixed so the force doesn't include the node in its auto positioning stuff
-        force.resume();
-    }
+function dragend(d, i) {
+    d.fixed = true; // of course set the node to fixed so the force doesn't include the node in its auto positioning stuff
+    force.resume();
+}
 
-    function releasenode(d) {
-        d.fixed = false; // of course set the node to fixed so the force doesn't include the node in its auto positioning stuff
-        //force.resume();
-    }
+function releasenode(d) {
+    d.fixed = false; // of course set the node to fixed so the force doesn't include the node in its auto positioning stuff
+    //force.resume();
+}
 
 
 var data, data2;
@@ -99,6 +99,8 @@ var maxCount = {}; // contain the max frequency for 4 categories
 var nodes;
 var numNode, numNode2;
 var pNodes;  // Parent nodes array (top N authors)
+var maxTotalFunding = 0;
+var widthScale;
 
 var link;
 var links;
@@ -112,46 +114,46 @@ var nodeG;  // SVG group for node rendering
 // Horizontal offset for time series start (minimal offset, timearcs span full width)
 var xStep = 50;  // Small offset for labels/positioning on left
 var xEndPadding = 150;  // Padding on right to prevent arc cutoff (increased for long arcs)
-var xScale = d3.time.scale().range([0, (width - xStep - xEndPadding)/numYear]);
+var xScale = d3.time.scale().range([0, (width - xStep - xEndPadding) / numYear]);
 var yScale;
 var linkScale;
-var searchTerm ="";
+var searchTerm = "";
 
 
- var nodes2 = [];
- var links2 = [];
+var nodes2 = [];
+var links2 = [];
 var nodes2List = {};
 var links2List = {};
-var linePNodes ={};
-    
+var linePNodes = {};
+
 
 // Base area for total proposals (optional, can be removed if only showing stacked groups)
 var area = d3.svg.area()
-        .interpolate("cardinal")
-        .x(function(d) { return xStep+xScale(d.yearId); })
-        .y0(function(d) { return d.yNode-yScale(d.value); })
-        .y1(function(d) {  return d.yNode +yScale(d.value); });
+    .interpolate("cardinal")
+    .x(function (d) { return xStep + xScale(d.yearId); })
+    .y0(function (d) { return d.yNode - yScale(d.value); })
+    .y1(function (d) { return d.yNode + yScale(d.value); });
 
 // Dynamic area generators for sponsor groups (will be created in createSponsorGroupAreas)
-     
+
 var tip = d3.tip()
-  .attr('class', 'd3-tip')
-  .style('top', "200px")
-  .style('left', function(d) { return "200px";  })
-  .offset(function(d) {
-    var a =[-10,0];
-    a[0] =-10;
-    a[1] = 0;
-    return a;
-  })
-  .html(function(d) {
-    return "<strong>Frequency:</strong> <span style='color:red'>" + d + "</span>";
-  })
+    .attr('class', 'd3-tip')
+    .style('top', "200px")
+    .style('left', function (d) { return "200px"; })
+    .offset(function (d) {
+        var a = [-10, 0];
+        a[0] = -10;
+        a[1] = 0;
+        return a;
+    })
+    .html(function (d) {
+        return "<strong>Frequency:</strong> <span style='color:red'>" + d + "</span>";
+    })
 svg.call(tip);
 
 var optArray = [];   // FOR search box
 
-var numberInputTerms =0;
+var numberInputTerms = 0;
 var listYear = [];
 var authorPubs = {}; // author -> list of publication objects
 window.authorPubs = authorPubs; // Make globally accessible for legend hover
@@ -241,895 +243,932 @@ function loadPublicationData() {
     console.log("Initialized sponsor groups:", sponsorGroups.length, "groups");
     console.log("Sponsor group colors:", sponsorGroupColors);
 
-d3.tsv("data/publication.tsv", function(error, data_) {
-    if (error) throw error;
-    data = data_;
-    authorPubs = {}; // reset
-    window.authorPubs = authorPubs; // Keep window reference in sync
-    
-    terms = new Object();
-    termMaxMax = 1;
-    var cccc = 0;
-    data.forEach(function(d) {
-        // Skip rows with missing or invalid date_submitted
-        if (!d["date_submitted"] || d["date_submitted"].length < 10) {
-            console.warn("Skipping row with invalid date_submitted:", d);
-            return;
-        }
+    d3.tsv("data/publication_new.tsv", function (error, data_) {
+        if (error) throw error;
 
-        // Extract year, month, and day from date_submitted (format: YYYY-MM-DD)
-        var yearValue = parseInt(d["date_submitted"].substring(0, 4));
-        var monthValue = parseInt(d["date_submitted"].substring(5, 7));
-        var dayValue = parseInt(d["date_submitted"].substring(8, 10));
-        // Calculate day offset from start date
-        var pubDate = new Date(yearValue, monthValue - 1, dayValue);
-        var year = Math.floor((pubDate - minDate) / (1000 * 60 * 60 * 24));
-        console.log("Time="+year + " days (" + yearValue + "-" + monthValue + "-" + dayValue + ")");
-
-        // Use sponsor for color assignment
-        if (d.sponsor) {
-            getColor(d.sponsor);
-        }
-
-        d.year = year;
-        //if (d.year<20) return; 
-            
-        numberInputTerms++;
-             
-        var list = d["Authors"].split(",");
-        cccc++;
-        for (var i=0; i<list.length;i++){
-            var term = list[i];
-            d[term] = 1;
-
-            // Build per-author publication index (used by right panel)
-            if (!authorPubs[term]) authorPubs[term] = [];
-            authorPubs[term].push({
-                proposal_no: d["proposal_no"],
-                title: d.title,
-                theme: d.theme,
-                sponsor: d.sponsor,
-                year: yearValue,
-                authors: d["Authors"]
-            });
-
-            if (!terms[term]){
-                terms[term] = new Object();
-                terms[term].count = 1;
-                terms[term].max = 0;
-                terms[term].maxYear = -100;   // initialized negative
-                terms[term].category = d.theme;
-
-                // Initialize sponsor group tracking for streamgraph
-                terms[term].sponsorGroups = {};
-                sponsorGroups.forEach(function(groupName) {
-                    terms[term].sponsorGroups[groupName] = {};
-                });
+        // Aggregate data: Group by proposal_no and combine Authors
+        var aggregatedData = {};
+        data_.forEach(function (d) {
+            var id = d["proposal_no"];
+            if (!aggregatedData[id]) {
+                aggregatedData[id] = d;
+                // Ensure Authors is treated as a list (initially just the first author)
+                // But wait, d["Authors"] is just one name now.
+                // We need to keep it as a string for compatibility with existing code which does split(",")
+                // So we will build a comma-separated string.
+            } else {
+                // Append author to existing entry
+                aggregatedData[id]["Authors"] += "," + d["Authors"];
             }
-            else
-                terms[term].count++;
-
-
-            if (!terms[term][year]){
-                terms[term][year] = 1;
-            }
-            else{
-                terms[term][year] ++;
-                if (terms[term][year]>terms[term].max){
-                    terms[term].max = terms[term][year];
-                    terms[term].maxYear = year;
-                    if (terms[term].max>termMaxMax)
-                        termMaxMax = terms[term].max;
-                }
-            }
-
-            // Track proposals by sponsor group for streamgraph
-            if (sponsorGroups && sponsorGroups.length > 0) {
-                var sponsorGroup = getSponsorGroup(d.sponsor);
-                if (!terms[term].sponsorGroups) {
-                    terms[term].sponsorGroups = {};
-                }
-                if (!terms[term].sponsorGroups[sponsorGroup]) {
-                    terms[term].sponsorGroups[sponsorGroup] = {};
-                }
-                if (!terms[term].sponsorGroups[sponsorGroup][year]) {
-                    terms[term].sponsorGroups[sponsorGroup][year] = 1;
-                } else {
-                    terms[term].sponsorGroups[sponsorGroup][year]++;
-                }
-            }   
-        }        
-    });
-    console.log("DONE reading the input file = "+data.length)
-      
-    readTermsAndRelationships();
-    computeNodes();
-    computeLinks();
-
-    // Configure force layout based on connectivity
-    force.linkStrength(function(l) {
-        // Only strong connections pull nodes together
-        if (l.count <= 1) {
-            return 0.2; // Weak links for single connections
-        } else if (l.count === 2) {
-            return 0.5; // Moderate strength for 2 connections
-        } else {
-            return 0.8; // Strong links for 3+ connections
-        }
-    });
-    force.linkDistance(function(l) {
-        // Weak connections allow more distance
-        // Increased distances to give visual breathing room
-        if (l.count <= 1) {
-            return 100; // Longer distance for single connections
-        } else if (l.count === 2) {
-            return 60; // Medium distance for 2 connections
-        } else {
-            return 40; // Moderate distance for 3+ connections - maintain spacing
-        }
-    });
-    
-    /// The second force directed layout ***********
-    for (var i=0;i<nodes.length;i++){
-        var nod = nodes[i];
-        if (!nodes2List[nod.name] && nodes2List[nod.name]!=0){
-            var newNod = {};
-            newNod.name = nod.name;
-            newNod.id = nodes2.length;
-            nodes2List[newNod.name] = newNod.id;
-            nodes2.push(newNod);
-        }
-    }
-
-    var selectedTime= {};
-    var linksList = {}; list5={};
-        selectedTime[20] = 1; linksList[20] = []; list5[20] ={};
-        selectedTime[21] = 1; linksList[21] = []; list5[21] ={};
-        selectedTime[22] = 1; linksList[22] = []; list5[22] ={};
-        selectedTime[23] = 1; linksList[23] = []; list5[23] ={};
-        selectedTime[24] = 1; linksList[24] = []; list5[24] ={};
-
-    for (var i=0;i<links.length;i++){
-        var l = links[i];
-        var name1 = nodes[l.source].name;
-        var name2 = nodes[l.target].name;
-        var node1 = nodes2List[name1];
-        var node2 = nodes2List[name2];
-        if (!links2List[name1+"_"+name2] && links2List[name1+"_"+name2]!=0){
-            var newl = {};
-            newl.source = node1;
-            newl.target = node2;
-            newl.count = l.count;
-            if (!newl[l.m]) 
-                newl[l.m] = l.count;
-            else
-                newl[l.m] += l.count;
-            
-            if (list5[l.m]){
-                list5[l.m][name1] =1;
-                list5[l.m][name2] =1;
-            }    
-
-            links2List[name1+"_"+name2] =  links2.length; 
-            links2.push(newl); 
-        }
-        else{
-            var oldl = links2[links2List[name1+"_"+name2]];
-            if (!oldl[l.m]) 
-                oldl[l.m] = l.count;
-            else
-                oldl[l.m] += l.count;
-
-            if (list5[l.m]){
-                list5[l.m][name1] =1;
-                list5[l.m][name2] =1;
-            }
-
-            oldl.count += l.count;
-        }  
-    }
-
-
-    force.nodes(nodes)
-        .links(links)
-        .start(100,150,200);
-
-   // force2.nodes(nodes2)
-   //     .links(links2)
-   //     .start();    
-
-
-  var link2 = svg2.selectAll(".link2")
-      .data(links2)
-    .enter().append("line")
-      .attr("class", "link2")
-      .style("stroke",function(d) {
-        if (d.count==1){
-            return "#fbb";
-        }
-        else{
-            return "#f00";
-        }
-
-      })
-      .style("stroke-width", function(d) { return 0.5+0.75*linkScale(d.count); });
-
-  var node2 = svg2.selectAll(".nodeText2")
-    .data(nodes2)
-    .enter().append("text")
-        .attr("class", "nodeText2")  
-        .text(function(d) { return d.name })           
-        .attr("dy", ".35em")
-        .style("fill","#000")
-        .style("text-anchor","middle")
-        .style("text-shadow", "1px 1px 0 rgba(255, 255, 255, 0.6")
-        .style("font-weight", function(d) { return d.isSearchTerm ? "bold" : ""; })
-        .attr("dy", ".21em")
-        .attr("font-family", "sans-serif")
-        .attr("font-size", "12px"); 
-
-
-
-
-
-node2.append("title")
-      .text(function(d) { return d.name; });
-
-  force2.on("tick", function() {
-    link2.attr("x1", function(d) { return d.source.x; })
-        .attr("y1", function(d) { return d.source.y; })
-        .attr("x2", function(d) { return d.target.x; })
-        .attr("y2", function(d) { return d.target.y; });
-
-    node2.attr("x", function(d) { return d.x; })
-        .attr("y", function(d) { return d.y; });
-  });
-
-
-
-
-
-
-    force.on("tick", function () {
-        update();
-    });
-    force.on("end", function () {
-        detactTimeSeries();
-        // Populate default panel view when layout stabilizes
-        renderPanelAll();
-    });
-
-    
-    
-
-    setupSliderScale(svg);
-    drawColorLegend();
-    drawTimeLegend();
-  
-
-    for (var i = 0; i < termArray.length; i++) {
-        optArray.push(termArray[i].term);
-    }
-    optArray = optArray.sort();
-    $(function () {
-        $("#search").autocomplete({
-            source: optArray
         });
-    }); 
-});
+
+        // Convert back to array
+        data = Object.keys(aggregatedData).map(function (key) {
+            return aggregatedData[key];
+        });
+
+        authorPubs = {}; // reset
+        window.authorPubs = authorPubs; // Keep window reference in sync
+
+        terms = new Object();
+        termMaxMax = 1;
+        maxTotalFunding = 0;
+        var cccc = 0;
+        data.forEach(function (d) {
+            // Skip rows with missing or invalid date_submitted
+            if (!d["date_submitted"] || d["date_submitted"].length < 10) {
+                console.warn("Skipping row with invalid date_submitted:", d);
+                return;
+            }
+
+            // Extract year, month, and day from date_submitted (format: YYYY-MM-DD)
+            var yearValue = parseInt(d["date_submitted"].substring(0, 4));
+            var monthValue = parseInt(d["date_submitted"].substring(5, 7));
+            var dayValue = parseInt(d["date_submitted"].substring(8, 10));
+            // Calculate day offset from start date
+            var pubDate = new Date(yearValue, monthValue - 1, dayValue);
+            var year = Math.floor((pubDate - minDate) / (1000 * 60 * 60 * 24));
+            console.log("Time=" + year + " days (" + yearValue + "-" + monthValue + "-" + dayValue + ")");
+
+            // Use sponsor for color assignment
+            if (d.sponsor) {
+                getColor(d.sponsor);
+            }
+
+            var amount = parseFloat(d["total"]);
+            if (isNaN(amount)) amount = 0;
+
+            d.year = year;
+            //if (d.year<20) return; 
+
+            numberInputTerms++;
+
+            var list = d["Authors"].split(",");
+            cccc++;
+            for (var i = 0; i < list.length; i++) {
+                var term = list[i];
+                d[term] = 1;
+
+                // Build per-author publication index (used by right panel)
+                if (!authorPubs[term]) authorPubs[term] = [];
+                authorPubs[term].push({
+                    proposal_no: d["proposal_no"],
+                    title: d.title,
+                    theme: d.theme,
+                    sponsor: d.sponsor,
+                    year: yearValue,
+                    authors: d["Authors"]
+                });
+
+                if (!terms[term]) {
+                    terms[term] = new Object();
+                    terms[term].count = 1;
+                    terms[term].max = 0;
+                    terms[term].maxYear = -100;   // initialized negative
+                    terms[term].category = d.theme;
+
+                    // Initialize sponsor group tracking for streamgraph
+                    terms[term].sponsorGroups = {};
+                    sponsorGroups.forEach(function (groupName) {
+                        terms[term].sponsorGroups[groupName] = {};
+                    });
+                    terms[term].totalFunding = 0;
+                }
+                else
+                    terms[term].count++;
+
+                terms[term].totalFunding += amount;
+
+
+                if (!terms[term][year]) {
+                    terms[term][year] = 1;
+                }
+                else {
+                    terms[term][year]++;
+                    if (terms[term][year] > terms[term].max) {
+                        terms[term].max = terms[term][year];
+                        terms[term].maxYear = year;
+                        if (terms[term].max > termMaxMax)
+                            termMaxMax = terms[term].max;
+                    }
+                }
+
+                // Track proposals by sponsor group for streamgraph
+                if (sponsorGroups && sponsorGroups.length > 0) {
+                    var sponsorGroup = getSponsorGroup(d.sponsor);
+                    if (!terms[term].sponsorGroups) {
+                        terms[term].sponsorGroups = {};
+                    }
+                    if (!terms[term].sponsorGroups[sponsorGroup]) {
+                        terms[term].sponsorGroups[sponsorGroup] = {};
+                    }
+                    if (!terms[term].sponsorGroups[sponsorGroup][year]) {
+                        terms[term].sponsorGroups[sponsorGroup][year] = 1;
+                    } else {
+                        terms[term].sponsorGroups[sponsorGroup][year]++;
+                    }
+                }
+            }
+        });
+        console.log("DONE reading the input file = " + data.length)
+
+        readTermsAndRelationships();
+        computeNodes();
+        computeLinks();
+
+        // Configure force layout based on connectivity
+        force.linkStrength(function (l) {
+            // Only strong connections pull nodes together
+            if (l.count <= 1) {
+                return 0.2; // Weak links for single connections
+            } else if (l.count === 2) {
+                return 0.5; // Moderate strength for 2 connections
+            } else {
+                return 0.8; // Strong links for 3+ connections
+            }
+        });
+        force.linkDistance(function (l) {
+            // Weak connections allow more distance
+            // Increased distances to give visual breathing room
+            if (l.count <= 1) {
+                return 100; // Longer distance for single connections
+            } else if (l.count === 2) {
+                return 60; // Medium distance for 2 connections
+            } else {
+                return 40; // Moderate distance for 3+ connections - maintain spacing
+            }
+        });
+
+        /// The second force directed layout ***********
+        for (var i = 0; i < nodes.length; i++) {
+            var nod = nodes[i];
+            if (!nodes2List[nod.name] && nodes2List[nod.name] != 0) {
+                var newNod = {};
+                newNod.name = nod.name;
+                newNod.id = nodes2.length;
+                nodes2List[newNod.name] = newNod.id;
+                nodes2.push(newNod);
+            }
+        }
+
+        var selectedTime = {};
+        var linksList = {}; list5 = {};
+        selectedTime[20] = 1; linksList[20] = []; list5[20] = {};
+        selectedTime[21] = 1; linksList[21] = []; list5[21] = {};
+        selectedTime[22] = 1; linksList[22] = []; list5[22] = {};
+        selectedTime[23] = 1; linksList[23] = []; list5[23] = {};
+        selectedTime[24] = 1; linksList[24] = []; list5[24] = {};
+
+        for (var i = 0; i < links.length; i++) {
+            var l = links[i];
+            var name1 = nodes[l.source].name;
+            var name2 = nodes[l.target].name;
+            var node1 = nodes2List[name1];
+            var node2 = nodes2List[name2];
+            if (!links2List[name1 + "_" + name2] && links2List[name1 + "_" + name2] != 0) {
+                var newl = {};
+                newl.source = node1;
+                newl.target = node2;
+                newl.count = l.count;
+                if (!newl[l.m])
+                    newl[l.m] = l.count;
+                else
+                    newl[l.m] += l.count;
+
+                if (list5[l.m]) {
+                    list5[l.m][name1] = 1;
+                    list5[l.m][name2] = 1;
+                }
+
+                links2List[name1 + "_" + name2] = links2.length;
+                links2.push(newl);
+            }
+            else {
+                var oldl = links2[links2List[name1 + "_" + name2]];
+                if (!oldl[l.m])
+                    oldl[l.m] = l.count;
+                else
+                    oldl[l.m] += l.count;
+
+                if (list5[l.m]) {
+                    list5[l.m][name1] = 1;
+                    list5[l.m][name2] = 1;
+                }
+
+                oldl.count += l.count;
+            }
+        }
+
+
+        force.nodes(nodes)
+            .links(links)
+            .start(100, 150, 200);
+
+        // force2.nodes(nodes2)
+        //     .links(links2)
+        //     .start();    
+
+
+        var link2 = svg2.selectAll(".link2")
+            .data(links2)
+            .enter().append("line")
+            .attr("class", "link2")
+            .style("stroke", function (d) {
+                if (d.count == 1) {
+                    return "#fbb";
+                }
+                else {
+                    return "#f00";
+                }
+
+            })
+            .style("stroke-width", function (d) { return 0.5 + 0.75 * linkScale(d.count); });
+
+        var node2 = svg2.selectAll(".nodeText2")
+            .data(nodes2)
+            .enter().append("text")
+            .attr("class", "nodeText2")
+            .text(function (d) { return d.name })
+            .attr("dy", ".35em")
+            .style("fill", "#000")
+            .style("text-anchor", "middle")
+            .style("text-shadow", "1px 1px 0 rgba(255, 255, 255, 0.6")
+            .style("font-weight", function (d) { return d.isSearchTerm ? "bold" : ""; })
+            .attr("dy", ".21em")
+            .attr("font-family", "sans-serif")
+            .attr("font-size", "12px");
+
+
+
+
+
+        node2.append("title")
+            .text(function (d) { return d.name; });
+
+        force2.on("tick", function () {
+            link2.attr("x1", function (d) { return d.source.x; })
+                .attr("y1", function (d) { return d.source.y; })
+                .attr("x2", function (d) { return d.target.x; })
+                .attr("y2", function (d) { return d.target.y; });
+
+            node2.attr("x", function (d) { return d.x; })
+                .attr("y", function (d) { return d.y; });
+        });
+
+
+
+
+
+
+        force.on("tick", function () {
+            update();
+        });
+        force.on("end", function () {
+            detactTimeSeries();
+            // Populate default panel view when layout stabilizes
+            renderPanelAll();
+        });
+
+
+
+
+        setupSliderScale(svg);
+        drawColorLegend();
+        drawTimeLegend();
+
+
+        for (var i = 0; i < termArray.length; i++) {
+            optArray.push(termArray[i].term);
+        }
+        optArray = optArray.sort();
+        $(function () {
+            $("#search").autocomplete({
+                source: optArray
+            });
+        });
+    });
 }
 
-    function recompute() {
-        var bar = document.getElementById('progBar'),
-            fallback = document.getElementById('downloadProgress'),
-            loaded = 0;
+function recompute() {
+    var bar = document.getElementById('progBar'),
+        fallback = document.getElementById('downloadProgress'),
+        loaded = 0;
 
-        var load = function() {
-            loaded += 1;
-            bar.value = loaded;
+    var load = function () {
+        loaded += 1;
+        bar.value = loaded;
 
-            /* The below will be visible if the progress tag is not supported */
-            $(fallback).empty().append("HTML5 progress tag not supported: ");
-            $('#progUpdate').empty().append(loaded + "% loaded");
+        /* The below will be visible if the progress tag is not supported */
+        $(fallback).empty().append("HTML5 progress tag not supported: ");
+        $('#progUpdate').empty().append(loaded + "% loaded");
 
-            if (loaded == 100) {
-                clearInterval(beginLoad);
-                $('#progUpdate').empty().append("Complete");
-            }
-        };
-
-        var beginLoad = setInterval(function() {load();}, 10);
-        setTimeout(alertFunc, 333);
-        
-        function alertFunc() {
-            readTermsAndRelationships();
-            computeNodes();
-            computeLinks()
-            force.nodes(nodes)
-                .links(links)
-                .start();
+        if (loaded == 100) {
+            clearInterval(beginLoad);
+            $('#progUpdate').empty().append("Complete");
         }
-    } 
+    };
 
-    function readTermsAndRelationships() {
-        data2 = data.filter(function (d, i) {
-           // if (d.year<20) return; 
-            if (!searchTerm || searchTerm=="" ) {
-                return d;
-            }
-            else if (d[searchTerm])
-                return d;
-        });
-        
-        // Apply inactive authors filter if enabled
-        if (excludeInactiveAuthors) {
-            data2 = data2.filter(function(d) {
-                var authors = d["Authors"].split(",");
-                // Only include if all authors are active (none are inactive)
-                for (var i = 0; i < authors.length; i++) {
-                    var author = authors[i].trim();
-                    if (inactiveAuthors[author]) {
-                        return false; // Exclude this publication
-                    }
+    var beginLoad = setInterval(function () { load(); }, 10);
+    setTimeout(alertFunc, 333);
+
+    function alertFunc() {
+        readTermsAndRelationships();
+        computeNodes();
+        computeLinks()
+        force.nodes(nodes)
+            .links(links)
+            .start();
+    }
+}
+
+function readTermsAndRelationships() {
+    data2 = data.filter(function (d, i) {
+        // if (d.year<20) return; 
+        if (!searchTerm || searchTerm == "") {
+            return d;
+        }
+        else if (d[searchTerm])
+            return d;
+    });
+
+    // Apply inactive authors filter if enabled
+    if (excludeInactiveAuthors) {
+        data2 = data2.filter(function (d) {
+            var authors = d["Authors"].split(",");
+            // Only include if all authors are active (none are inactive)
+            for (var i = 0; i < authors.length; i++) {
+                var author = authors[i].trim();
+                if (inactiveAuthors[author]) {
+                    return false; // Exclude this publication
                 }
-                return true;
+            }
+            return true;
+        });
+    }
+
+    console.log("data2=" + data2.length);
+    var selected = {}
+    if (searchTerm && searchTerm != "") {
+        data2.forEach(function (d) {
+            for (var term1 in d) {
+                if (!selected[term1])
+                    selected[term1] = {};
+                else {
+                    if (!selected[term1].isSelected)
+                        selected[term1].isSelected = 1;
+                    else
+                        selected[term1].isSelected++;
+                }
+            }
+        });
+    }
+
+
+    var removeList = {};   // remove list **************
+
+    // Add inactive authors to remove list if filter is enabled
+    if (excludeInactiveAuthors) {
+        for (var inactiveAuthor in inactiveAuthors) {
+            if (inactiveAuthors[inactiveAuthor]) {
+                removeList[inactiveAuthor] = true;
+            }
+        }
+    }
+
+    termArray = [];
+    for (var att in terms) {
+        var e = {};
+        e.term = att;
+        if (removeList[e.term] || (searchTerm && searchTerm != "" && !selected[e.term])) // remove list **************
+            continue;
+
+        /*
+        var maxNet = 0;
+        var maxYear = -1;
+        for (var y=1; y<numYear;y++){
+            if (terms[att][y]){
+                var previous = 0;
+                if (terms[att][y-1])
+                    previous = terms[att][y-1];
+                var net = (terms[att][y]+1)/(previous+1);
+                if (net>maxNet){
+                    maxNet=net;
+                    maxYear = y;
+                }    
+            }
+        }*/
+        var maxmaxmax = 0
+        for (var i = 0; i < numYear; i++) {
+            if (terms[att][i])
+                maxmaxmax += terms[att][i]
+        }
+
+        e.count = terms[att].count;
+        e.max = maxmaxmax;////terms[att].max;
+        e.maxYear = terms[att].maxYear;
+        e.category = terms[att].category;
+        e.sponsorGroups = terms[att].sponsorGroups || {};
+        e.totalFunding = terms[att].totalFunding || 0;
+
+
+        if (e.term == searchTerm) {
+            e.isSearchTerm = 1;
+        }
+
+        termArray.push(e);
+    }
+    //        console.log("  termArray.length="+termArray.length) ; 
+
+    if (!searchTerm)
+        numberInputTerms = termArray.length;
+
+    console.log("Finish ordering term by maxNet");
+
+
+
+    // Compute relationship **********************************************************
+    numNode2 = termArray.length;
+    relationship = {};
+    relationshipMaxMax = 0;
+    // rrr ={};
+    ttt = {};
+    data2.forEach(function (d) {
+        var year = d.year;
+        var list = d["Authors"].split(",").map(function (a) { return a.trim(); }); // Trim whitespace
+        // Only count unique pairs once (i < j), exclude self-connections
+        for (var i = 0; i < list.length; i++) {
+            var term1 = list[i];
+            for (var j = i + 1; j < list.length; j++) {  // j starts at i+1 to avoid self-connections and duplicates
+                var term2 = list[j];
+                // Use consistent ordering to avoid counting A->B and B->A separately
+                var key = term1 < term2 ? term1 + "__" + term2 : term2 + "__" + term1;
+                if (!relationship[key]) {
+                    relationship[key] = new Object();
+                    //   rrr[key] = new Object();
+                    ttt[key] = new Object();
+                    relationship[key].max = 1;
+                    relationship[key].maxYear = year;
+                }
+                if (!relationship[key][year]) {
+                    relationship[key][year] = 1;
+                    //      rrr[key][year] = {};
+                    ttt[key][year] = [];
+                    ttt[key][year].push({
+                        proposal_no: d["proposal_no"],
+                        theme: d.theme,
+                        sponsor: d.sponsor
+                    });
+                }
+                else {
+                    //  if (!rrr[key][year][d["theme"]+"**"+d["title"].substring(0,10)]){
+                    relationship[key][year]++;
+                    ttt[key][year].push({
+                        proposal_no: d["proposal_no"],
+                        theme: d.theme,
+                        sponsor: d.sponsor
+                    });
+
+                    if (relationship[key][year] > relationship[key].max) {
+                        relationship[key].max = relationship[key][year];
+                        relationship[key].maxYear = year;
+
+                        if (relationship[key].max > relationshipMaxMax) // max over time
+                            relationshipMaxMax = relationship[key].max;
+                    }
+                    //    } 
+                }
+
+            }
+        }
+    });
+    console.log("DONE computing realtionships relationshipMaxMax=" + relationshipMaxMax);
+}
+
+
+function computeConnectivity(a, num) {
+    for (var i = 0; i < num; i++) {
+        a[i].isConnected = -100;
+        a[i].isConnectedMaxYear = a[i].maxYear;
+    }
+
+    for (var i = 0; i < num; i++) {
+        var term1 = a[i].term;
+        for (var j = i + 1; j < num; j++) {
+            var term2 = a[j].term;
+            // Use consistent ordering to match the key used in readTermsAndRelationships
+            var key = term1 < term2 ? term1 + "__" + term2 : term2 + "__" + term1;
+            if (relationship[key] && relationship[key].max >= valueSlider) {
+                if (relationship[key].max > a[i].isConnected
+                    || (relationship[key].max == a[i].isConnected
+                        && relationship[key].maxYear < a[i].isConnectedMaxYear)) {
+                    a[i].isConnected = relationship[key].max;
+                    a[i].isConnectedMaxYear = relationship[key].maxYear;
+                }
+                if (relationship[key].max > a[j].isConnected
+                    || (relationship[key].max == a[j].isConnected
+                        && relationship[key].maxYear < a[j].isConnectedMaxYear)) {
+                    a[j].isConnected = relationship[key].max;
+                    a[j].isConnectedMaxYear = relationship[key].maxYear;
+                }
+            }
+        }
+    }
+}
+
+function computeNodes() {
+    numNode0 = Math.min(200, termArray.length);
+    console.log("termArray=" + termArray.length);
+    computeConnectivity(termArray, numNode0);
+
+
+    termArray.sort(function (a, b) {
+        if (a.isConnected < b.isConnected) {
+            return 1;
+        }
+        else if (a.isConnected > b.isConnected) {
+            return -1;
+        }
+        else {
+            if (a.max < b.max) {
+                return 1;
+            }
+            else if (a.max > b.max) {
+                return -1;
+            }
+            else
+                return 0;
+        }
+    });
+
+    numNode = Math.min(50, termArray.length);
+    computeConnectivity(termArray, numNode);
+    nodes = [];
+    for (var i = 0; i < numNode; i++) {
+        var nod = new Object();
+        nod.id = i;
+        nod.group = termArray[i].category;
+        nod.name = termArray[i].term;
+        nod.max = termArray[i].max;
+        var maxDayRelationship = termArray[i].maxYear;  // maxYear now stores day offset
+        nod.isConnectedMaxYear = termArray[i].isConnectedMaxYear;
+        nod.maxYear = termArray[i].isConnectedMaxYear;
+        nod.year = termArray[i].isConnectedMaxYear;
+        nod.minY = 0;  // Initialize to prevent NaN errors
+        nod.maxY = 0;  // Initialize to prevent NaN errors
+        nod.totalFunding = termArray[i].totalFunding || 0;
+        if (nod.totalFunding > maxTotalFunding) maxTotalFunding = nod.totalFunding;
+        if (termArray[i].isSearchTerm) {
+            nod.isSearchTerm = 1;
+            if (!nod.year)
+                nod.year = termArray[i].maxYear;
+            if (!nod.isConnectedMaxYear)
+                nod.isConnectedMaxYear = termArray[i].maxYear;
+        }
+
+        if (!maxCount[nod.group] || nod.max > maxCount[nod.group])
+            maxCount[nod.group] = nod.max;
+
+        if (termArray[i].isConnected > 0)  // Only allow connected items
+            nodes.push(nod);
+    }
+    numNode = nodes.length;
+
+    // Use linear scale starting at $5000 minimum
+    widthScale = d3.scale.linear()
+        .range([1, 18])
+        .domain([5000, maxTotalFunding])
+        .clamp(true); // Clamp values below 5000 to min width
+
+    console.log("numNode=" + numNode);
+
+
+    // compute the yearly data for streamgraph
+    termMaxMax2 = 0;
+
+    for (var i = 0; i < numNode; i++) {
+        nodes[i].yearly = new Array(numYear);
+
+        // Initialize sponsor group arrays for streamgraph
+        nodes[i].sponsorGroupsData = {};
+        if (sponsorGroups && sponsorGroups.length > 0) {
+            sponsorGroups.forEach(function (groupName) {
+                nodes[i].sponsorGroupsData[groupName] = new Array(numYear);
             });
         }
 
-        console.log("data2="+data2.length);
-        var selected  ={}
-        if (searchTerm && searchTerm!=""){
-            data2.forEach(function(d) {
-                 for (var term1 in d) {
-                    if (!selected[term1])
-                        selected[term1] = {};
-                    else{
-                        if (!selected[term1].isSelected)
-                            selected[term1].isSelected = 1;
-                        else
-                            selected[term1].isSelected ++;
-                    }    
-               }
-            } );
-        }
+        for (var y = 0; y < numYear; y++) {
+            nodes[i].yearly[y] = new Object();
 
-
-        var removeList = {};   // remove list **************
-        
-        // Add inactive authors to remove list if filter is enabled
-        if (excludeInactiveAuthors) {
-            for (var inactiveAuthor in inactiveAuthors) {
-                if (inactiveAuthors[inactiveAuthor]) {
-                    removeList[inactiveAuthor] = true;
-                }
+            // Total proposals for this year
+            if (terms[nodes[i].name][y]) {
+                nodes[i].yearly[y].value = terms[nodes[i].name][y];
+                if (nodes[i].yearly[y].value > termMaxMax2)
+                    termMaxMax2 = nodes[i].yearly[y].value;
             }
-        }
-
-        termArray = [];
-        for (var att in terms) {
-            var e =  {};
-            e.term = att;
-            if (removeList[e.term] || (searchTerm && searchTerm!="" && !selected[e.term])) // remove list **************
-                continue;
-
-            /*
-            var maxNet = 0;
-            var maxYear = -1;
-            for (var y=1; y<numYear;y++){
-                if (terms[att][y]){
-                    var previous = 0;
-                    if (terms[att][y-1])
-                        previous = terms[att][y-1];
-                    var net = (terms[att][y]+1)/(previous+1);
-                    if (net>maxNet){
-                        maxNet=net;
-                        maxYear = y;
-                    }    
-                }
-            }*/
-            var maxmaxmax = 0
-            for (var i=0;i<numYear;i++){
-                if (terms[att][i])
-                    maxmaxmax+=terms[att][i]
-             }
-
-            e.count = terms[att].count;
-            e.max = maxmaxmax;////terms[att].max;
-            e.maxYear = terms[att].maxYear;
-            e.category = terms[att].category;
-            e.sponsorGroups = terms[att].sponsorGroups || {};   
-
-            
-            if (e.term==searchTerm){
-                e.isSearchTerm = 1;
-            }
-              
-            termArray.push(e);
-        }
-//        console.log("  termArray.length="+termArray.length) ; 
-       
-        if (!searchTerm)
-            numberInputTerms = termArray.length;
-        
-       console.log("Finish ordering term by maxNet") ; 
-        
-        
-       
-    // Compute relationship **********************************************************
-        numNode2 = termArray.length;
-        relationship ={};
-        relationshipMaxMax =0;
-       // rrr ={};
-        ttt ={};
-        data2.forEach(function(d) { 
-            var year = d.year;
-            var list = d["Authors"].split(",").map(function(a) { return a.trim(); }); // Trim whitespace
-            // Only count unique pairs once (i < j), exclude self-connections
-            for (var i=0; i<list.length;i++){
-                var term1 = list[i];
-                for (var j=i+1; j<list.length;j++){  // j starts at i+1 to avoid self-connections and duplicates
-                    var term2 = list[j];
-                    // Use consistent ordering to avoid counting A->B and B->A separately
-                    var key = term1 < term2 ? term1+"__"+term2 : term2+"__"+term1;
-                    if (!relationship[key]){
-                        relationship[key] = new Object();
-                     //   rrr[key] = new Object();
-                        ttt[key] = new Object();
-                        relationship[key].max = 1;
-                        relationship[key].maxYear =year;
-                    }    
-                    if (!relationship[key][year]){
-                        relationship[key][year] = 1;
-                  //      rrr[key][year] = {};
-                        ttt[key][year] = [];
-                        ttt[key][year].push({
-                            proposal_no: d["proposal_no"],
-                            theme: d.theme,
-                            sponsor: d.sponsor
-                        });
-                    }
-                    else{
-                      //  if (!rrr[key][year][d["theme"]+"**"+d["title"].substring(0,10)]){
-                            relationship[key][year]++;
-                            ttt[key][year].push({
-                                proposal_no: d["proposal_no"],
-                                theme: d.theme,
-                                sponsor: d.sponsor
-                            });
-                        
-                            if (relationship[key][year]>relationship[key].max){
-                                relationship[key].max = relationship[key][year];
-                                relationship[key].maxYear =year; 
-                                
-                                if (relationship[key].max>relationshipMaxMax) // max over time
-                                    relationshipMaxMax = relationship[key].max;
-                            } 
-                    //    } 
-                    }
-
-                }
-            }
-        });
-        console.log("DONE computing realtionships relationshipMaxMax="+relationshipMaxMax);
-    }
-    
-
-    function computeConnectivity(a, num) {
-        for (var i=0; i<num;i++){
-            a[i].isConnected=-100;
-            a[i].isConnectedMaxYear= a[i].maxYear;
-        }    
-        
-        for (var i=0; i<num;i++){
-            var term1 =  a[i].term;
-            for (var j=i+1; j<num;j++){
-                var term2 =  a[j].term;
-                // Use consistent ordering to match the key used in readTermsAndRelationships
-                var key = term1 < term2 ? term1+"__"+term2 : term2+"__"+term1;
-                if (relationship[key] && relationship[key].max>=valueSlider){
-                    if (relationship[key].max> a[i].isConnected 
-                        || (relationship[key].max == a[i].isConnected
-                            && relationship[key].maxYear<a[i].isConnectedMaxYear)){
-                        a[i].isConnected = relationship[key].max;
-                        a[i].isConnectedMaxYear = relationship[key].maxYear;
-                    }    
-                    if (relationship[key].max> a[j].isConnected
-                        || (relationship[key].max == a[j].isConnected
-                            && relationship[key].maxYear<a[j].isConnectedMaxYear)){
-                        a[j].isConnected = relationship[key].max;
-                        a[j].isConnectedMaxYear = relationship[key].maxYear;
-                    }   
-                }
-            }
-        }
-    }
-
-    function computeNodes() {
-        numNode0 = Math.min(200, termArray.length);
-        console.log("termArray="+termArray.length);
-        computeConnectivity(termArray, numNode0);
-        
-        
-        termArray.sort(function (a, b) {
-         if (a.isConnected < b.isConnected) {
-            return 1;
-          }
-          else if (a.isConnected > b.isConnected) {
-            return -1;
-          }
-          else{
-                if (a.max < b.max) {
-                    return 1;
-                }
-                else if (a.max > b.max) {
-                    return -1;
-                }
-                else 
-                return 0;
-            }
-        });   
-      
-        numNode = Math.min(50, termArray.length);
-        computeConnectivity(termArray, numNode);
-        nodes = [];
-        for (var i=0; i<numNode;i++){
-            var nod = new Object();
-            nod.id = i;
-            nod.group = termArray[i].category;
-            nod.name = termArray[i].term;
-            nod.max = termArray[i].max;
-            var maxDayRelationship = termArray[i].maxYear;  // maxYear now stores day offset
-            nod.isConnectedMaxYear = termArray[i].isConnectedMaxYear;
-            nod.maxYear = termArray[i].isConnectedMaxYear;
-            nod.year = termArray[i].isConnectedMaxYear;
-            nod.minY = 0;  // Initialize to prevent NaN errors
-            nod.maxY = 0;  // Initialize to prevent NaN errors
-            if (termArray[i].isSearchTerm){
-                nod.isSearchTerm =1;
-                if (!nod.year)
-                    nod.year = termArray[i].maxYear;
-                if (!nod.isConnectedMaxYear)
-                    nod.isConnectedMaxYear = termArray[i].maxYear;
+            else {
+                nodes[i].yearly[y].value = 0;
             }
 
-            if (!maxCount[nod.group] || nod.max>maxCount[nod.group])
-                maxCount[nod.group] = nod.max;
+            nodes[i].yearly[y].yearId = y;
+            nodes[i].yearly[y].yNode = nodes[i].y;
 
-            if (termArray[i].isConnected>0)  // Only allow connected items
-                nodes.push(nod);
-        }
-        numNode = nodes.length;
-        
-        console.log("numNode="+numNode);
-        
-
-        // compute the yearly data for streamgraph
-        termMaxMax2 = 0;
-
-        for (var i=0; i<numNode; i++){
-            nodes[i].yearly = new Array(numYear);
-
-            // Initialize sponsor group arrays for streamgraph
-            nodes[i].sponsorGroupsData = {};
+            // Initialize sponsor group values for this year
             if (sponsorGroups && sponsorGroups.length > 0) {
-                sponsorGroups.forEach(function(groupName) {
-                    nodes[i].sponsorGroupsData[groupName] = new Array(numYear);
+                sponsorGroups.forEach(function (groupName) {
+                    if (!nodes[i].sponsorGroupsData[groupName]) {
+                        nodes[i].sponsorGroupsData[groupName] = new Array(numYear);
+                    }
+                    if (!nodes[i].sponsorGroupsData[groupName][y]) {
+                        nodes[i].sponsorGroupsData[groupName][y] = new Object();
+                    }
+
+                    // Get value for this sponsor group in this year
+                    var groupValue = 0;
+                    if (terms[nodes[i].name].sponsorGroups &&
+                        terms[nodes[i].name].sponsorGroups[groupName] &&
+                        terms[nodes[i].name].sponsorGroups[groupName][y]) {
+                        groupValue = terms[nodes[i].name].sponsorGroups[groupName][y];
+                    }
+
+                    nodes[i].sponsorGroupsData[groupName][y].value = groupValue;
+                    nodes[i].sponsorGroupsData[groupName][y].yearId = y;
+                    nodes[i].sponsorGroupsData[groupName][y].yNode = nodes[i].y;
+
+                    // Store in yearly for stacking
+                    nodes[i].yearly[y][groupName] = groupValue;
                 });
             }
-
-            for (var y=0; y<numYear; y++){
-                nodes[i].yearly[y] = new Object();
-
-                // Total proposals for this year
-                if (terms[nodes[i].name][y]){
-                    nodes[i].yearly[y].value = terms[nodes[i].name][y];
-                    if (nodes[i].yearly[y].value >termMaxMax2)
-                         termMaxMax2 = nodes[i].yearly[y].value ;
-                }
-                else{
-                    nodes[i].yearly[y].value = 0;
-                }
-
-                nodes[i].yearly[y].yearId = y;
-                nodes[i].yearly[y].yNode = nodes[i].y;
-
-                // Initialize sponsor group values for this year
-                if (sponsorGroups && sponsorGroups.length > 0) {
-                    sponsorGroups.forEach(function(groupName) {
-                        if (!nodes[i].sponsorGroupsData[groupName]) {
-                            nodes[i].sponsorGroupsData[groupName] = new Array(numYear);
-                        }
-                        if (!nodes[i].sponsorGroupsData[groupName][y]) {
-                            nodes[i].sponsorGroupsData[groupName][y] = new Object();
-                        }
-
-                        // Get value for this sponsor group in this year
-                        var groupValue = 0;
-                        if (terms[nodes[i].name].sponsorGroups &&
-                            terms[nodes[i].name].sponsorGroups[groupName] &&
-                            terms[nodes[i].name].sponsorGroups[groupName][y]) {
-                            groupValue = terms[nodes[i].name].sponsorGroups[groupName][y];
-                        }
-
-                        nodes[i].sponsorGroupsData[groupName][y].value = groupValue;
-                        nodes[i].sponsorGroupsData[groupName][y].yearId = y;
-                        nodes[i].sponsorGroupsData[groupName][y].yNode = nodes[i].y;
-
-                        // Store in yearly for stacking
-                        nodes[i].yearly[y][groupName] = groupValue;
-                    });
-                }
-            }
-        } 
-        
-        // Construct an array of only parent nodes
-        pNodes = new Array(numNode);
-        termMaxMax3 = 0;
-        for (var i=0; i<numNode;i++){
-            pNodes[i] = nodes[i];
-            if (pNodes[i].max>termMaxMax3)
-                termMaxMax3 = pNodes[i].max;
         }
-       // drawStreamTerm(svg, pNodes, 100, 600);
-
-    }    
-
-    // Find strongly connected components using DFS
-    function findConnectedComponents() {
-        var componentId = 0;
-        var visited = {};
-        var components = {}; // componentId -> array of node indices
-        
-        function dfs(nodeIndex, compId) {
-            if (visited[nodeIndex]) return;
-            visited[nodeIndex] = true;
-            
-            if (!components[compId]) {
-                components[compId] = [];
-            }
-            components[compId].push(nodeIndex);
-            nodes[nodeIndex].componentId = compId;
-            
-            // Visit all connected nodes (only parent nodes for component detection)
-            if (nodes[nodeIndex].connect) {
-                for (var k = 0; k < nodes[nodeIndex].connect.length; k++) {
-                    var connectedId = nodes[nodeIndex].connect[k];
-                    // Only traverse parent nodes (not child nodes)
-                    if (connectedId < numNode && 
-                        (nodes[connectedId].parentNode === undefined || nodes[connectedId].parentNode < 0)) {
-                        if (!visited[connectedId]) {
-                            dfs(connectedId, compId);
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Find components starting from each unvisited parent node
-        for (var i = 0; i < numNode; i++) {
-            if (!visited[i] && (nodes[i].parentNode === undefined || nodes[i].parentNode < 0)) {
-                dfs(i, componentId);
-                componentId++;
-            }
-        }
-        
-        // Assign child nodes to their parent's component
-        for (var i = numNode; i < nodes.length; i++) {
-            if (nodes[i].parentNode !== undefined && nodes[i].parentNode >= 0) {
-                var parentCompId = nodes[nodes[i].parentNode].componentId;
-                if (parentCompId !== undefined) {
-                    nodes[i].componentId = parentCompId;
-                }
-            }
-        }
-        
-        // Ensure all nodes have a componentId (assign isolated nodes)
-        for (var i = 0; i < nodes.length; i++) {
-            if (nodes[i].componentId === undefined) {
-                nodes[i].componentId = componentId;
-                if (!components[componentId]) {
-                    components[componentId] = [];
-                }
-                components[componentId].push(i);
-                componentId++;
-            }
-        }
-        
-        console.log("Found", Object.keys(components).length, "connected components");
-        return components;
     }
 
-    function computeLinks() {
-        links = [];
-        relationshipMaxMax2 =0;
-        
-        for (var i=0; i<numNode;i++){
-            var term1 =  nodes[i].name;
-            for (var j=i+1; j<numNode;j++){
-                var term2 =  nodes[j].name;
-                // Use consistent ordering to match the key used in readTermsAndRelationships
-                var key = term1 < term2 ? term1+"__"+term2 : term2+"__"+term1;
-                if (relationship[key]){
-                    var ordering =0;
-                    for (var m=1; m<numYear;m++){
-                        if (relationship[key][m] && relationship[key][m]>=valueSlider){
-                            var sourceNodeId = i;
-                            var targetNodeId = j;
-                            
-                            if (!nodes[i].connect)
-                                nodes[i].connect = new Array();
-                            nodes[i].connect.push(j)
-                            if (!nodes[j].connect)
-                                nodes[j].connect = new Array();
-                            nodes[j].connect.push(i)
+    // Construct an array of only parent nodes
+    pNodes = new Array(numNode);
+    termMaxMax3 = 0;
+    for (var i = 0; i < numNode; i++) {
+        pNodes[i] = nodes[i];
+        if (pNodes[i].max > termMaxMax3)
+            termMaxMax3 = pNodes[i].max;
+    }
+    // drawStreamTerm(svg, pNodes, 100, 600);
 
-                            if (m != nodes[i].maxYear){
-                                if (isContainedChild(nodes[i].childNodes,m)>=0){  // already have the child node for that day
-                                    sourceNodeId =  nodes[i].childNodes[isContainedChild(nodes[i].childNodes,m)];
-                                }  
-                                else{  
-                                    var nod = new Object();
-                                    nod.id = nodes.length;
-                                    nod.group = nodes[i].group;
-                                    nod.name = nodes[i].name;
-                                    nod.max = nodes[i].max;
-                                    nod.maxYear = nodes[i].maxYear;
-                                    nod.year = m;
-                                    
-                                    nod.parentNode = i;   // this is the new property to define the parent node
-                                    if (!nodes[i].childNodes)
-                                         nodes[i].childNodes = new Array();
-                                    nodes[i].childNodes.push(nod.id);
-                                    
-                                    sourceNodeId = nod.id;
-                                    nodes.push(nod);
-                                }
-                            }
-                            if (m != nodes[j].maxYear){
-                                if (isContainedChild(nodes[j].childNodes,m)>=0){
-                                    targetNodeId = nodes[j].childNodes[isContainedChild(nodes[j].childNodes,m)];
-                                }
-                                else{    
-                                    var nod = new Object();
-                                    nod.id = nodes.length;
-                                    nod.group = nodes[j].group;
-                                    nod.name = nodes[j].name;
-                                    nod.max = nodes[j].max;
-                                    nod.maxYear = nodes[j].maxYear;
-                                    nod.year = m;
-                                    
-                                    nod.parentNode = j;   // this is the new property to define the parent node
-                                     if (!nodes[j].childNodes)
-                                         nodes[j].childNodes = new Array();
-                                    nodes[j].childNodes.push(nod.id);
-                                    
-                                    targetNodeId = nod.id;
-                                    nodes.push(nod);
-                                }    
-                            }
-                            
-                            var l = new Object();
-                            l.source = sourceNodeId;
-                            l.target = targetNodeId;
-                            l.m = m; 
-                            l.ordering = ordering; 
-                            ordering++;
-                            //l.value = linkScale(relationship[term1+"__"+term2][m]); 
-                            links.push(l);
-                            if (relationship[key][m] > relationshipMaxMax2)
-                                relationshipMaxMax2 = relationship[key][m];
-                        }
+}
+
+// Find strongly connected components using DFS
+function findConnectedComponents() {
+    var componentId = 0;
+    var visited = {};
+    var components = {}; // componentId -> array of node indices
+
+    function dfs(nodeIndex, compId) {
+        if (visited[nodeIndex]) return;
+        visited[nodeIndex] = true;
+
+        if (!components[compId]) {
+            components[compId] = [];
+        }
+        components[compId].push(nodeIndex);
+        nodes[nodeIndex].componentId = compId;
+
+        // Visit all connected nodes (only parent nodes for component detection)
+        if (nodes[nodeIndex].connect) {
+            for (var k = 0; k < nodes[nodeIndex].connect.length; k++) {
+                var connectedId = nodes[nodeIndex].connect[k];
+                // Only traverse parent nodes (not child nodes)
+                if (connectedId < numNode &&
+                    (nodes[connectedId].parentNode === undefined || nodes[connectedId].parentNode < 0)) {
+                    if (!visited[connectedId]) {
+                        dfs(connectedId, compId);
                     }
                 }
             }
         }
-        
-        var linearScale = d3.scale.linear()
-            .range([0.3, 0.2])
-            .domain([0, 500]);
-        var hhh = Math.min(linearScale(numNode)*height/numNode,10);
+    }
 
-        console.log("hhh="+hhh+" linearScale="+linearScale(numNode)+"    termMaxMax2="+termMaxMax2);
-        // Increase scale for visible streamgraphs
-        // Make streamgraphs prominent: use hhh*2 for good visibility
-        yScale = d3.scale.linear()
-            .range([0, hhh * 2])
-            .domain([0, termMaxMax2]);
-        // Use square root scale to compress high relationship counts
-        // This prevents very thick arcs while still showing relative differences
-        var maxCount = Math.max(relationshipMaxMax2, 2);
-        
-        // Create a custom scale function that ensures count=1 is always thin
-        // and prevents count=2 from mapping to maximum when maxCount is small
-        linkScale = function(count) {
-            if (count <= 1) {
-                return 1.2;  // Always return minimum for count=1 or less
-            }
-            // For small maxCount, use a more gradual scale
-            if (maxCount <= 2) {
-                // Linear interpolation: count=1 → 1.2, count=2 → 1.8
-                return 1.2 + (count - 1) * 0.6;
-            }
-            // Use square root scale for larger maxCount values
-            var sqrtScale = d3.scale.sqrt()
-                .range([1.2, 3])
-                .domain([1, maxCount])
-                .clamp(true);
-            return sqrtScale(count);
-        };
+    // Find components starting from each unvisited parent node
+    for (var i = 0; i < numNode; i++) {
+        if (!visited[i] && (nodes[i].parentNode === undefined || nodes[i].parentNode < 0)) {
+            dfs(i, componentId);
+            componentId++;
+        }
+    }
 
-        links.forEach(function(l) {
-            var term1 = nodes[l.source].name;
-            var term2 = nodes[l.target].name;
-            var day = l.m;  // l.m stores day offset from start date
+    // Assign child nodes to their parent's component
+    for (var i = numNode; i < nodes.length; i++) {
+        if (nodes[i].parentNode !== undefined && nodes[i].parentNode >= 0) {
+            var parentCompId = nodes[nodes[i].parentNode].componentId;
+            if (parentCompId !== undefined) {
+                nodes[i].componentId = parentCompId;
+            }
+        }
+    }
+
+    // Ensure all nodes have a componentId (assign isolated nodes)
+    for (var i = 0; i < nodes.length; i++) {
+        if (nodes[i].componentId === undefined) {
+            nodes[i].componentId = componentId;
+            if (!components[componentId]) {
+                components[componentId] = [];
+            }
+            components[componentId].push(i);
+            componentId++;
+        }
+    }
+
+    console.log("Found", Object.keys(components).length, "connected components");
+    return components;
+}
+
+function computeLinks() {
+    links = [];
+    relationshipMaxMax2 = 0;
+
+    for (var i = 0; i < numNode; i++) {
+        var term1 = nodes[i].name;
+        for (var j = i + 1; j < numNode; j++) {
+            var term2 = nodes[j].name;
             // Use consistent ordering to match the key used in readTermsAndRelationships
-            var key = term1 < term2 ? term1+"__"+term2 : term2+"__"+term1;
-            var count = relationship[key] && relationship[key][day] ? relationship[key][day] : 1;
-            l.count = count;
-            l.type = ttt[key] && ttt[key][day] ? ttt[key][day] : [];
-            // Ensure count is at least 1
-            var clampedCount = Math.max(1, count);
-            l.value = linkScale(clampedCount);
-            
-            // Debug: log all arcs to understand the data
-            if (count > 1) {
-                console.log("Arc with count > 1:", {
-                    term1: term1,
-                    term2: term2,
-                    day: day,
-                    count: count,
-                    value: l.value,
-                    publications: l.type ? l.type.length : 0,
-                    key: key,
-                    relationshipValue: relationship[key] ? relationship[key][day] : 'undefined'
-                });
+            var key = term1 < term2 ? term1 + "__" + term2 : term2 + "__" + term1;
+            if (relationship[key]) {
+                var ordering = 0;
+                for (var m = 1; m < numYear; m++) {
+                    if (relationship[key][m] && relationship[key][m] >= valueSlider) {
+                        var sourceNodeId = i;
+                        var targetNodeId = j;
+
+                        if (!nodes[i].connect)
+                            nodes[i].connect = new Array();
+                        nodes[i].connect.push(j)
+                        if (!nodes[j].connect)
+                            nodes[j].connect = new Array();
+                        nodes[j].connect.push(i)
+
+                        if (m != nodes[i].maxYear) {
+                            if (isContainedChild(nodes[i].childNodes, m) >= 0) {  // already have the child node for that day
+                                sourceNodeId = nodes[i].childNodes[isContainedChild(nodes[i].childNodes, m)];
+                            }
+                            else {
+                                var nod = new Object();
+                                nod.id = nodes.length;
+                                nod.group = nodes[i].group;
+                                nod.name = nodes[i].name;
+                                nod.max = nodes[i].max;
+                                nod.maxYear = nodes[i].maxYear;
+                                nod.year = m;
+
+                                nod.parentNode = i;   // this is the new property to define the parent node
+                                if (!nodes[i].childNodes)
+                                    nodes[i].childNodes = new Array();
+                                nodes[i].childNodes.push(nod.id);
+
+                                sourceNodeId = nod.id;
+                                nodes.push(nod);
+                            }
+                        }
+                        if (m != nodes[j].maxYear) {
+                            if (isContainedChild(nodes[j].childNodes, m) >= 0) {
+                                targetNodeId = nodes[j].childNodes[isContainedChild(nodes[j].childNodes, m)];
+                            }
+                            else {
+                                var nod = new Object();
+                                nod.id = nodes.length;
+                                nod.group = nodes[j].group;
+                                nod.name = nodes[j].name;
+                                nod.max = nodes[j].max;
+                                nod.maxYear = nodes[j].maxYear;
+                                nod.year = m;
+
+                                nod.parentNode = j;   // this is the new property to define the parent node
+                                if (!nodes[j].childNodes)
+                                    nodes[j].childNodes = new Array();
+                                nodes[j].childNodes.push(nod.id);
+
+                                targetNodeId = nod.id;
+                                nodes.push(nod);
+                            }
+                        }
+
+                        var l = new Object();
+                        l.source = sourceNodeId;
+                        l.target = targetNodeId;
+                        l.m = m;
+                        l.ordering = ordering;
+                        ordering++;
+                        //l.value = linkScale(relationship[term1+"__"+term2][m]); 
+                        links.push(l);
+                        if (relationship[key][m] > relationshipMaxMax2)
+                            relationshipMaxMax2 = relationship[key][m];
+                    }
+                }
             }
+        }
+    }
 
-            // Debug: log if count=1 but value is unexpectedly high
-            if (count === 1 && l.value > 1.5) {
-                console.warn("Arc with count=1 has high value:", {
-                    term1: term1,
-                    term2: term2,
-                    day: day,
-                    count: count,
-                    value: l.value,
-                    maxCount: maxCount,
-                    key: key,
-                    relationshipValue: relationship[key] ? relationship[key][day] : 'undefined'
-                });
-            }
-        });  
+    var linearScale = d3.scale.linear()
+        .range([0.3, 0.2])
+        .domain([0, 500]);
+    var hhh = Math.min(linearScale(numNode) * height / numNode, 10);
 
-        console.log("DONE links relationshipMaxMax2="+relationshipMaxMax2);
+    console.log("hhh=" + hhh + " linearScale=" + linearScale(numNode) + "    termMaxMax2=" + termMaxMax2);
+    // Increase scale for visible streamgraphs
+    // Make streamgraphs prominent: use hhh*2 for good visibility
+    yScale = d3.scale.linear()
+        .range([0, hhh * 2])
+        .domain([0, termMaxMax2]);
+    // Use square root scale to compress high relationship counts
+    // This prevents very thick arcs while still showing relative differences
+    var maxCount = Math.max(relationshipMaxMax2, 2);
 
-        // Find connected components after links are computed
-        var components = findConnectedComponents();
-        
-        // Store component information globally for use in force layout
-        window.components = components;
-        window.numComponents = Object.keys(components).length;
+    // Create a custom scale function that ensures count=1 is always thin
+    // and prevents count=2 from mapping to maximum when maxCount is small
+    linkScale = function (count) {
+        if (count <= 1) {
+            return 1.2;  // Always return minimum for count=1 or less
+        }
+        // For small maxCount, use a more gradual scale
+        if (maxCount <= 2) {
+            // Linear interpolation: count=1 → 1.2, count=2 → 1.8
+            return 1.2 + (count - 1) * 0.6;
+        }
+        // Use square root scale for larger maxCount values
+        var sqrtScale = d3.scale.sqrt()
+            .range([1.2, 3])
+            .domain([1, maxCount])
+            .clamp(true);
+        return sqrtScale(count);
+    };
 
-        //Create all the line svgs but without locations yet
-        svg.selectAll(".linkArc").remove();
-        svg.selectAll("g.linkArcGroup").remove();
-        var linkArcGroup = svg.append("g")
-            .attr("class", "linkArcGroup");
-            // Removed clip-path to allow arcs to extend slightly beyond bounds if needed
-        linkArcs = linkArcGroup.selectAll("path")
+    links.forEach(function (l) {
+        var term1 = nodes[l.source].name;
+        var term2 = nodes[l.target].name;
+        var day = l.m;  // l.m stores day offset from start date
+        // Use consistent ordering to match the key used in readTermsAndRelationships
+        var key = term1 < term2 ? term1 + "__" + term2 : term2 + "__" + term1;
+        var count = relationship[key] && relationship[key][day] ? relationship[key][day] : 1;
+        l.count = count;
+        l.type = ttt[key] && ttt[key][day] ? ttt[key][day] : [];
+        // Ensure count is at least 1
+        var clampedCount = Math.max(1, count);
+        l.value = linkScale(clampedCount);
+
+        // Debug: log all arcs to understand the data
+        if (count > 1) {
+            console.log("Arc with count > 1:", {
+                term1: term1,
+                term2: term2,
+                day: day,
+                count: count,
+                value: l.value,
+                publications: l.type ? l.type.length : 0,
+                key: key,
+                relationshipValue: relationship[key] ? relationship[key][day] : 'undefined'
+            });
+        }
+
+        // Debug: log if count=1 but value is unexpectedly high
+        if (count === 1 && l.value > 1.5) {
+            console.warn("Arc with count=1 has high value:", {
+                term1: term1,
+                term2: term2,
+                day: day,
+                count: count,
+                value: l.value,
+                maxCount: maxCount,
+                key: key,
+                relationshipValue: relationship[key] ? relationship[key][day] : 'undefined'
+            });
+        }
+    });
+
+    console.log("DONE links relationshipMaxMax2=" + relationshipMaxMax2);
+
+    // Find connected components after links are computed
+    var components = findConnectedComponents();
+
+    // Store component information globally for use in force layout
+    window.components = components;
+    window.numComponents = Object.keys(components).length;
+
+    //Create all the line svgs but without locations yet
+    svg.selectAll(".linkArc").remove();
+    svg.selectAll("g.linkArcGroup").remove();
+    var linkArcGroup = svg.append("g")
+        .attr("class", "linkArcGroup");
+    // Removed clip-path to allow arcs to extend slightly beyond bounds if needed
+    linkArcs = linkArcGroup.selectAll("path")
         .data(links)
         .enter().append("path")
         .attr("class", "linkArc")
-        .style("stroke", function (d) {
+        .style("fill", function (d) {
             // If count=1, use the sponsor's color directly
             if (d.count == 1) {
                 return getColor(d.type[0] ? d.type[0].sponsor : null);
             }
-            
+
             // For count > 1, check if all sponsors are in the same group
             if (d.type && d.type.length > 0) {
                 var groupColors = [];
                 var uniqueGroupColors = {};
-                
+
                 // Get group colors for all publications
                 for (var i = 0; i < d.type.length; i++) {
                     if (d.type[i] && d.type[i].sponsor) {
@@ -1140,7 +1179,7 @@ node2.append("title")
                         }
                     }
                 }
-                
+
                 // If all publications have the same group color, use it
                 // Otherwise, use black
                 if (groupColors.length === 1) {
@@ -1149,19 +1188,16 @@ node2.append("title")
                     return "#000"; // Different groups, use black
                 }
             }
-            
+
             // Fallback to black
             return "#000";
         })
-        .style("stroke-opacity", 1)
+        .style("fill-opacity", 0.6)
+        .style("stroke", "none")
         .style("stroke-width", function (d) {
-            // Force count=1 to always be thin, regardless of value
-            if (d.count === 1) {
-                return 1.2;
-            }
-            return d.value;
+            return 0;
         })
-        .each(function(d) {
+        .each(function (d) {
             // Debug: log all arcs to see what's happening
             if (d.count === 1 && d.value > 1.5) {
                 console.warn("Arc with count=1 but value > 1.5:", {
@@ -1172,266 +1208,266 @@ node2.append("title")
                     day: d.m  // day offset from start date
                 });
             }
-        });   
+        });
 
-         svg.selectAll(".linkArc")
-            .on('mouseover', mouseoveredLink)
-            .on('mouseout', mouseoutedLink);
+    svg.selectAll(".linkArc")
+        .on('mouseover', mouseoveredLink)
+        .on('mouseout', mouseoutedLink);
 
-        // Render proposal circles for sponsor groups (replaced streamgraphs)
-        renderProposalCircles();
+    // Render proposal circles for sponsor groups (replaced streamgraphs)
+    renderProposalCircles();
 
-        svg.selectAll(".nodeG").remove();
-        nodeG = svg.selectAll(".nodeG")
-            .data(pNodes).enter().append("g")
-            .attr("class", "nodeG")
-         
-        nodeG.append("text")
-            .attr("class", "nodeText")
-            .text(function(d) { return d.name })
-            .attr("dy", "3px")
-            .style("fill","#000000")
-            .style("text-anchor","end")
-            .style("text-shadow", "1px 1px 0 rgba(255, 255, 255, 0.6")
-            .style("font-weight", function(d) { return d.isSearchTerm ? "bold" : ""; })
-            .attr("font-family", "sans-serif")
-            .attr("font-size", "12px")
-            .on('mouseover', mouseoveredNode)
-            .on('mouseout', mouseoutedNode);
+    svg.selectAll(".nodeG").remove();
+    nodeG = svg.selectAll(".nodeG")
+        .data(pNodes).enter().append("g")
+        .attr("class", "nodeG")
 
-    
-
-        // Horizontal lines
-        svg.selectAll(".linePNodes").remove();
-        linePNodes = svg.selectAll(".linePNodes")
-            .data(pNodes).enter().append("line")
-            .attr("class", "linePNodes")
-            .attr("x1", function(d) {return xStep+xScale(d.minY);})
-            .attr("y1", function(d) {return d.y;})
-            .attr("x2", function(d) {return xStep+xScale(d.maxY);})
-            .attr("y2", function(d) {return d.y;})
-            .style("stroke-dasharray", ("1, 1"))
-            .style("stroke-width",0.4)
-            .style("stroke", "#000"); 
+    nodeG.append("text")
+        .attr("class", "nodeText")
+        .text(function (d) { return d.name })
+        .attr("dy", "3px")
+        .style("fill", "#000000")
+        .style("text-anchor", "end")
+        .style("text-shadow", "1px 1px 0 rgba(255, 255, 255, 0.6")
+        .style("font-weight", function (d) { return d.isSearchTerm ? "bold" : ""; })
+        .attr("font-family", "sans-serif")
+        .attr("font-size", "12px")
+        .on('mouseover', mouseoveredNode)
+        .on('mouseout', mouseoutedNode);
 
 
 
-         // This is for linkDistance
-        listYear = [];
-        links.forEach(function(l) { 
-            if (searchTerm!=""){
-                if (nodes[l.source].name == searchTerm || nodes[l.target].name == searchTerm){
-                    if (isContainedInteger(listYear,l.m)<0)
-                        listYear.push(l.m);
-                }
-            }    
-        }); 
-        listYear.sort(function (a, b) {
-          if (a > b) {
-            return 1;
-          }
-          else if (a < b) {
-            return -1;
-          }
-          else
-            return 0;
-        });    
-       // listYear.sort();
-    }
+    // Horizontal lines
+    svg.selectAll(".linePNodes").remove();
+    linePNodes = svg.selectAll(".linePNodes")
+        .data(pNodes).enter().append("line")
+        .attr("class", "linePNodes")
+        .attr("x1", function (d) { return xStep + xScale(d.minY); })
+        .attr("y1", function (d) { return d.y; })
+        .attr("x2", function (d) { return xStep + xScale(d.maxY); })
+        .attr("y2", function (d) { return d.y; })
+        .style("stroke-dasharray", ("1, 1"))
+        .style("stroke-width", 0.4)
+        .style("stroke", "#000");
 
-    // OLD STREAMGRAPH CODE - Replaced by proposal circles
-    // Keeping for reference but no longer used
-    /*
-    function updateStreamgraphLayers(durationTime) {
-        if (!pNodes || pNodes.length === 0 || !sponsorGroups || sponsorGroups.length === 0) {
-            return;
-        }
 
-        try {
-            // Update each streamgraph layer
-            var layerIndex = 0;
-            pNodes.forEach(function(node) {
-                if (!node.sponsorGroupsData) return;
 
-                sponsorGroups.forEach(function(groupName, groupIndex) {
-                    if (!node.sponsorGroupsData[groupName]) {
-                        layerIndex++;
-                        return;
-                    }
-
-                    var groupData = node.sponsorGroupsData[groupName];
-
-                    // Create updated path data with new Y position
-                    var pathData = [];
-                    for (var y = 0; y < numYear; y++) {
-                        if (!groupData[y]) continue;
-
-                        // Calculate cumulative offset (stack from bottom)
-                        var cumulativeOffset = 0;
-                        for (var prevGroupIndex = 0; prevGroupIndex < groupIndex; prevGroupIndex++) {
-                            var prevGroupName = sponsorGroups[prevGroupIndex];
-                            if (node.sponsorGroupsData[prevGroupName] &&
-                                node.sponsorGroupsData[prevGroupName][y]) {
-                                cumulativeOffset += node.sponsorGroupsData[prevGroupName][y].value || 0;
-                            }
-                        }
-
-                        pathData.push({
-                            yearId: y,
-                            yNode: node.y,  // Updated Y position
-                            value: groupData[y].value || 0,
-                            y0: cumulativeOffset,
-                            y1: cumulativeOffset + (groupData[y].value || 0)
-                        });
-                    }
-
-                    // Create area generator for this sponsor group
-                    var groupArea = d3.svg.area()
-                        .interpolate("basis")
-                        .x(function(d) { return xStep + xScale(d.yearId); })
-                        .y0(function(d) { return d.yNode - yScale(d.y0); })
-                        .y1(function(d) { return d.yNode - yScale(d.y1); });
-
-                    // Update the layer
-                    var layers = svg.selectAll(".streamgraph-layer");
-                    if (layers && layers[0] && layers[0][layerIndex]) {
-                        var layer = d3.select(layers[0][layerIndex]);
-                        if (layer && !layer.empty()) {
-                            layer.transition().duration(durationTime)
-                                .attr("d", groupArea(pathData));
-                        }
-                    }
-
-                    layerIndex++;
-                });
-            });
-        } catch (e) {
-            console.error("Error updating streamgraph layers:", e);
-        }
-    }
-    */
-    // END OF OLD STREAMGRAPH UPDATE CODE
-
-    // OLD STREAMGRAPH RENDERING FUNCTION - Replaced by renderProposalCircles()
-    // Keeping for reference but no longer used
-    /*
-    function renderSponsorGroupStreamgraphs() {
-        try {
-            // Remove existing streamgraph layers
-            svg.selectAll(".streamgraph-layer").remove();
-            svg.selectAll(".streamgraph-layers-group").remove();
-
-            if (!sponsorGroups || sponsorGroups.length === 0 || !pNodes || pNodes.length === 0) {
-                console.log("Skipping streamgraph rendering: no sponsor groups or nodes");
-                return;
+    // This is for linkDistance
+    listYear = [];
+    links.forEach(function (l) {
+        if (searchTerm != "") {
+            if (nodes[l.source].name == searchTerm || nodes[l.target].name == searchTerm) {
+                if (isContainedInteger(listYear, l.m) < 0)
+                    listYear.push(l.m);
             }
+        }
+    });
+    listYear.sort(function (a, b) {
+        if (a > b) {
+            return 1;
+        }
+        else if (a < b) {
+            return -1;
+        }
+        else
+            return 0;
+    });
+    // listYear.sort();
+}
 
-            // Create a group for streamgraph layers (below arcs)
-            var streamgraphGroup = svg.insert("g", ".linkArcGroup")
-                .attr("class", "streamgraph-layers-group");
+// OLD STREAMGRAPH CODE - Replaced by proposal circles
+// Keeping for reference but no longer used
+/*
+function updateStreamgraphLayers(durationTime) {
+    if (!pNodes || pNodes.length === 0 || !sponsorGroups || sponsorGroups.length === 0) {
+        return;
+    }
 
-            // For each parent node, render stacked areas for sponsor groups
-            pNodes.forEach(function(node, nodeIndex) {
-                if (!node.sponsorGroupsData) {
-                    console.warn("Node missing sponsorGroupsData:", node.name);
+    try {
+        // Update each streamgraph layer
+        var layerIndex = 0;
+        pNodes.forEach(function(node) {
+            if (!node.sponsorGroupsData) return;
+
+            sponsorGroups.forEach(function(groupName, groupIndex) {
+                if (!node.sponsorGroupsData[groupName]) {
+                    layerIndex++;
                     return;
                 }
 
-                // Calculate cumulative heights for stacking
-                // Bottom-up stacking approach
-                sponsorGroups.forEach(function(groupName, groupIndex) {
-                    if (!node.sponsorGroupsData[groupName]) {
-                        console.warn("Missing data for group:", groupName, "node:", node.name);
-                        return;
-                    }
+                var groupData = node.sponsorGroupsData[groupName];
 
-                    var groupData = node.sponsorGroupsData[groupName];
+                // Create updated path data with new Y position
+                var pathData = [];
+                for (var y = 0; y < numYear; y++) {
+                    if (!groupData[y]) continue;
 
-                    // Create area path data with cumulative offsets
-                    var pathData = [];
-                    for (var y = 0; y < numYear; y++) {
-                        if (!groupData[y]) {
-                            console.warn("Missing data for year", y, "group:", groupName, "node:", node.name);
-                            continue;
+                    // Calculate cumulative offset (stack from bottom)
+                    var cumulativeOffset = 0;
+                    for (var prevGroupIndex = 0; prevGroupIndex < groupIndex; prevGroupIndex++) {
+                        var prevGroupName = sponsorGroups[prevGroupIndex];
+                        if (node.sponsorGroupsData[prevGroupName] &&
+                            node.sponsorGroupsData[prevGroupName][y]) {
+                            cumulativeOffset += node.sponsorGroupsData[prevGroupName][y].value || 0;
                         }
-
-                        var dataPoint = {
-                            yearId: y,
-                            yNode: node.y || 0,
-                            value: groupData[y].value || 0,
-                            y0: 0, // Will be calculated based on previous groups
-                            y1: 0  // Will be calculated
-                        };
-
-                        // Calculate cumulative offset (stack from bottom)
-                        var cumulativeOffset = 0;
-                        for (var prevGroupIndex = 0; prevGroupIndex < groupIndex; prevGroupIndex++) {
-                            var prevGroupName = sponsorGroups[prevGroupIndex];
-                            if (node.sponsorGroupsData[prevGroupName] &&
-                                node.sponsorGroupsData[prevGroupName][y]) {
-                                cumulativeOffset += node.sponsorGroupsData[prevGroupName][y].value || 0;
-                            }
-                        }
-
-                        dataPoint.y0 = cumulativeOffset;
-                        dataPoint.y1 = cumulativeOffset + dataPoint.value;
-
-                        pathData.push(dataPoint);
                     }
 
-                    // Skip if no data
-                    if (pathData.length === 0) {
-                        return;
+                    pathData.push({
+                        yearId: y,
+                        yNode: node.y,  // Updated Y position
+                        value: groupData[y].value || 0,
+                        y0: cumulativeOffset,
+                        y1: cumulativeOffset + (groupData[y].value || 0)
+                    });
+                }
+
+                // Create area generator for this sponsor group
+                var groupArea = d3.svg.area()
+                    .interpolate("basis")
+                    .x(function(d) { return xStep + xScale(d.yearId); })
+                    .y0(function(d) { return d.yNode - yScale(d.y0); })
+                    .y1(function(d) { return d.yNode - yScale(d.y1); });
+
+                // Update the layer
+                var layers = svg.selectAll(".streamgraph-layer");
+                if (layers && layers[0] && layers[0][layerIndex]) {
+                    var layer = d3.select(layers[0][layerIndex]);
+                    if (layer && !layer.empty()) {
+                        layer.transition().duration(durationTime)
+                            .attr("d", groupArea(pathData));
                     }
+                }
 
-                    // Create area generator for this sponsor group
-                    var groupArea = d3.svg.area()
-                        .interpolate("basis")
-                        .x(function(d) { return xStep + xScale(d.yearId); })
-                        .y0(function(d) { return d.yNode - yScale(d.y0); })
-                        .y1(function(d) { return d.yNode - yScale(d.y1); });
-
-                    // Render the area
-                    var groupColor = sponsorGroupColors[groupName] || "#999";
-                    streamgraphGroup.append("path")
-                        .datum(pathData)
-                        .attr("class", "streamgraph-layer")
-                        .attr("data-author", node.name)  // Store author name for highlighting
-                        .attr("data-group", groupName)    // Store group name
-                        .attr("d", groupArea)
-                        .style("fill", groupColor)
-                        .style("fill-opacity", 0.7)
-                        .style("stroke", "none")
-                        .on("mouseover", function() {
-                            d3.select(this)
-                                .style("fill-opacity", 0.9)
-                                .style("stroke", groupColor)
-                                .style("stroke-width", 0.5);
-                        })
-                        .on("mouseout", function() {
-                            d3.select(this)
-                                .style("fill-opacity", 0.7)
-                                .style("stroke", "none");
-                        })
-                        .append("title")
-                        .text(groupName + " - " + node.name);
-                });
+                layerIndex++;
             });
-
-            console.log("Rendered", svg.selectAll(".streamgraph-layer").size(), "streamgraph layers");
-        } catch (e) {
-            console.error("Error rendering streamgraph layers:", e);
-        }
+        });
+    } catch (e) {
+        console.error("Error updating streamgraph layers:", e);
     }
-    */
-    // END OF OLD STREAMGRAPH CODE
+}
+*/
+// END OF OLD STREAMGRAPH UPDATE CODE
 
-$('#btnUpload').click(function() {
+// OLD STREAMGRAPH RENDERING FUNCTION - Replaced by renderProposalCircles()
+// Keeping for reference but no longer used
+/*
+function renderSponsorGroupStreamgraphs() {
+    try {
+        // Remove existing streamgraph layers
+        svg.selectAll(".streamgraph-layer").remove();
+        svg.selectAll(".streamgraph-layers-group").remove();
+
+        if (!sponsorGroups || sponsorGroups.length === 0 || !pNodes || pNodes.length === 0) {
+            console.log("Skipping streamgraph rendering: no sponsor groups or nodes");
+            return;
+        }
+
+        // Create a group for streamgraph layers (below arcs)
+        var streamgraphGroup = svg.insert("g", ".linkArcGroup")
+            .attr("class", "streamgraph-layers-group");
+
+        // For each parent node, render stacked areas for sponsor groups
+        pNodes.forEach(function(node, nodeIndex) {
+            if (!node.sponsorGroupsData) {
+                console.warn("Node missing sponsorGroupsData:", node.name);
+                return;
+            }
+
+            // Calculate cumulative heights for stacking
+            // Bottom-up stacking approach
+            sponsorGroups.forEach(function(groupName, groupIndex) {
+                if (!node.sponsorGroupsData[groupName]) {
+                    console.warn("Missing data for group:", groupName, "node:", node.name);
+                    return;
+                }
+
+                var groupData = node.sponsorGroupsData[groupName];
+
+                // Create area path data with cumulative offsets
+                var pathData = [];
+                for (var y = 0; y < numYear; y++) {
+                    if (!groupData[y]) {
+                        console.warn("Missing data for year", y, "group:", groupName, "node:", node.name);
+                        continue;
+                    }
+
+                    var dataPoint = {
+                        yearId: y,
+                        yNode: node.y || 0,
+                        value: groupData[y].value || 0,
+                        y0: 0, // Will be calculated based on previous groups
+                        y1: 0  // Will be calculated
+                    };
+
+                    // Calculate cumulative offset (stack from bottom)
+                    var cumulativeOffset = 0;
+                    for (var prevGroupIndex = 0; prevGroupIndex < groupIndex; prevGroupIndex++) {
+                        var prevGroupName = sponsorGroups[prevGroupIndex];
+                        if (node.sponsorGroupsData[prevGroupName] &&
+                            node.sponsorGroupsData[prevGroupName][y]) {
+                            cumulativeOffset += node.sponsorGroupsData[prevGroupName][y].value || 0;
+                        }
+                    }
+
+                    dataPoint.y0 = cumulativeOffset;
+                    dataPoint.y1 = cumulativeOffset + dataPoint.value;
+
+                    pathData.push(dataPoint);
+                }
+
+                // Skip if no data
+                if (pathData.length === 0) {
+                    return;
+                }
+
+                // Create area generator for this sponsor group
+                var groupArea = d3.svg.area()
+                    .interpolate("basis")
+                    .x(function(d) { return xStep + xScale(d.yearId); })
+                    .y0(function(d) { return d.yNode - yScale(d.y0); })
+                    .y1(function(d) { return d.yNode - yScale(d.y1); });
+
+                // Render the area
+                var groupColor = sponsorGroupColors[groupName] || "#999";
+                streamgraphGroup.append("path")
+                    .datum(pathData)
+                    .attr("class", "streamgraph-layer")
+                    .attr("data-author", node.name)  // Store author name for highlighting
+                    .attr("data-group", groupName)    // Store group name
+                    .attr("d", groupArea)
+                    .style("fill", groupColor)
+                    .style("fill-opacity", 0.7)
+                    .style("stroke", "none")
+                    .on("mouseover", function() {
+                        d3.select(this)
+                            .style("fill-opacity", 0.9)
+                            .style("stroke", groupColor)
+                            .style("stroke-width", 0.5);
+                    })
+                    .on("mouseout", function() {
+                        d3.select(this)
+                            .style("fill-opacity", 0.7)
+                            .style("stroke", "none");
+                    })
+                    .append("title")
+                    .text(groupName + " - " + node.name);
+            });
+        });
+
+        console.log("Rendered", svg.selectAll(".streamgraph-layer").size(), "streamgraph layers");
+    } catch (e) {
+        console.error("Error rendering streamgraph layers:", e);
+    }
+}
+*/
+// END OF OLD STREAMGRAPH CODE
+
+$('#btnUpload').click(function () {
     var bar = document.getElementById('progBar'),
         fallback = document.getElementById('downloadProgress'),
         loaded = 0;
 
-    var load = function() {
+    var load = function () {
         loaded += 1;
         bar.value = loaded;
 
@@ -1446,23 +1482,23 @@ $('#btnUpload').click(function() {
         }
     };
 
-    var beginLoad = setInterval(function() {load();}, 50);
+    var beginLoad = setInterval(function () { load(); }, 50);
 
 });
 
 function searchNode() {
 
     svg.selectAll(".linePNodes").remove();
-        
+
     searchTerm = document.getElementById('search').value;
-    console.log("searchTerm="+searchTerm);
-    valueSlider =1;
+    console.log("searchTerm=" + searchTerm);
+    valueSlider = 1;
     handle.attr("cx", xScaleSlider(valueSlider));
     recompute();
 }
 
-function mouseoveredLink(l) {  
-    if (force.alpha()==0) {
+function mouseoveredLink(l) {
+    if (force.alpha() == 0) {
         // mouseovered(l.source);
 
         var term1 = l.source.name;
@@ -1470,7 +1506,7 @@ function mouseoveredLink(l) {
         var list = {};
         list[term1] = l.source;
         list[term2] = l.target;
-        
+
         var listCardId = [];
         var listTilte = [];
         var listTilte = [];
@@ -1484,19 +1520,19 @@ function mouseoveredLink(l) {
         if (l.type && l.type.length > 0) {
             // Create a map of proposal_no to publication data for quick lookup
             var proposalMap = {};
-            data2.forEach(function(d) {
+            data2.forEach(function (d) {
                 if (d.year == l.m) {
                     proposalMap[d.proposal_no] = d;
                 }
             });
-            
+
             // Add all publications from l.type
             for (var i = 0; i < l.type.length; i++) {
                 var pub = l.type[i];
                 var pubData = proposalMap[pub.proposal_no];
                 if (pubData) {
                     // Check if both authors are in this publication
-                    var authorList = pubData["Authors"].split(",").map(function(a) { return a.trim(); });
+                    var authorList = pubData["Authors"].split(",").map(function (a) { return a.trim(); });
                     if (authorList.indexOf(term1) >= 0 && authorList.indexOf(term2) >= 0) {
                         listCardId.push(pub.proposal_no);
                         listEvidence.push(pubData.title);
@@ -1511,15 +1547,15 @@ function mouseoveredLink(l) {
             }
         } else {
             // Fallback to old method if l.type is not available
-            data2.forEach(function(d) { 
+            data2.forEach(function (d) {
                 var year = d.year;
-                if (year==l.m){
+                if (year == l.m) {
                     var list = d["Authors"].split(",");
-                    for (var i=0; i<list.length;i++){
-                        if (term1==list[i]){
-                            for (var j=0; j<list.length;j++){
-                                if (term2==list[j]){
-                                    if (!listBoth[d.title.substring(0,10)+"**"+d.theme]){
+                    for (var i = 0; i < list.length; i++) {
+                        if (term1 == list[i]) {
+                            for (var j = 0; j < list.length; j++) {
+                                if (term2 == list[j]) {
+                                    if (!listBoth[d.title.substring(0, 10) + "**" + d.theme]) {
                                         listCardId.push(d["proposal_no"]);
                                         listEvidence.push(d.title);
                                         listTilte.push(d.title);
@@ -1528,37 +1564,37 @@ function mouseoveredLink(l) {
                                             theme: d.theme,
                                             sponsor: d.sponsor
                                         });
-                                        listBoth[d.title.substring(0,10)+"**"+d.theme] =1;
+                                        listBoth[d.title.substring(0, 10) + "**" + d.theme] = 1;
                                     }
-                                }    
+                                }
                             }
                         }
                     }
                 }
             });
         }
-        
+
         var x1 = l.source.x;
         var x2 = l.target.x;
         var y1 = l.source.y;
         var y2 = l.target.y;
 
         // Check if tooltip would go off right edge, if so position it on the left
-        var midX = xStep+(x1+x2)/2;
-        var tooltipOffset = Math.abs(y1-y2)/2+10;
+        var midX = xStep + (x1 + x2) / 2;
+        var tooltipOffset = Math.abs(y1 - y2) / 2 + 10;
         var estimatedTooltipWidth = 600; // Approximate width of tooltip
         var showTooltipOnLeft = (midX + tooltipOffset + estimatedTooltipWidth) > fullWidth;
 
         var x3 = showTooltipOnLeft ? (midX - tooltipOffset) : (midX + tooltipOffset);
         var yGap = 12;
-        var totalSize = yGap*listTilte.length;
+        var totalSize = yGap * listTilte.length;
 
         var tipData = new Object();
         tipData.x = x3;
-        tipData.y = (y1+y2)/2;
+        tipData.y = (y1 + y2) / 2;
         tipData.a = listTilte;
-        for (var i=0; i<listTilte.length;i++){
-            var y3 = (y1+y2)/2-totalSize/2+(i+0.5)*yGap;
+        for (var i = 0; i < listTilte.length; i++) {
+            var y3 = (y1 + y2) / 2 - totalSize / 2 + (i + 0.5) * yGap;
 
             // Proposal number with sponsor color
             var proposalText = svg.append("text")
@@ -1571,9 +1607,9 @@ function mouseoveredLink(l) {
                 .attr("font-size", "12px")
                 .style("font-weight", "bold")
                 .style("text-anchor", showTooltipOnLeft ? "end" : "left")
-                .style("fill", function(d) {
+                .style("fill", function (d) {
                     return getColor(listType[i] ? listType[i].sponsor : null);
-                 })
+                })
                 .style("text-shadow", "1px 1px 0 rgba(200, 200, 200, 0.6");
 
             // Get the width of the proposal number text to position the title
@@ -1601,10 +1637,10 @@ function mouseoveredLink(l) {
                 .append("title")  // Add SVG title element for full text on hover
                 .text(titleText);
         }
-    
+
         svg.selectAll(".linkArc")
-            .style("stroke-opacity", function(l2) {
-                if (l==l2)
+            .style("stroke-opacity", function (l2) {
+                if (l == l2)
                     return 1;
                 else
                     return 0.05;
@@ -1613,42 +1649,42 @@ function mouseoveredLink(l) {
         svg.selectAll(".linePNodes")
             .style("stroke-opacity", 0.1);
 
-        nodeG.style("fill-opacity" , function(n) {
-            if (n.name== term1 || n.name== term2)
+        nodeG.style("fill-opacity", function (n) {
+            if (n.name == term1 || n.name == term2)
                 return 1;
             else
-              return 0.05;
-            });
+                return 0.05;
+        });
 
         // Fade proposal circles (dots) except for the two connected authors
         svg.selectAll(".proposal-circle")
-            .style("fill-opacity", function() {
+            .style("fill-opacity", function () {
                 var circleAuthor = d3.select(this).attr("data-author");
                 if (circleAuthor === term1 || circleAuthor === term2) {
                     return 0.9;  // Keep connected authors' circles visible
                 }
                 return 0.05;  // Fade other circles
-            }); 
+            });
 
-         nodeG.transition().duration(500).attr("transform", function(n) {
-                if (n.name== term1 || n.name== term2){
-                    var newX =xStep+xScale(l.m);
-                    return "translate(" + newX + "," + n.y + ")"
-                }
-                else{
-                    return "translate(" + n.xConnected + "," + n.y + ")"
-                }
-            })        
-    }     
-} 
+        nodeG.transition().duration(500).attr("transform", function (n) {
+            if (n.name == term1 || n.name == term2) {
+                var newX = xStep + xScale(l.m);
+                return "translate(" + newX + "," + n.y + ")"
+            }
+            else {
+                return "translate(" + n.xConnected + "," + n.y + ")"
+            }
+        })
+    }
+}
 function mouseoutedLink(l) {
-    if (force.alpha()==0) {
+    if (force.alpha() == 0) {
         svg.selectAll(".linkTilte").remove();
         svg.selectAll(".linkArc")
-            .style("stroke-opacity" , 1);
-        nodeG.style("fill-opacity" , 1);
-        nodeG.transition().duration(500).attr("transform", function(n) {
-            return "translate(" +n.xConnected + "," + n.y + ")"
+            .style("stroke-opacity", 1);
+        nodeG.style("fill-opacity", 1);
+        nodeG.transition().duration(500).attr("transform", function (n) {
+            return "translate(" + n.xConnected + "," + n.y + ")"
         })
         svg.selectAll(".linePNodes")
             .style("stroke-opacity", 1);
@@ -1658,79 +1694,79 @@ function mouseoutedLink(l) {
             .style("fill-opacity", 0.7);
 
     }
-}   
+}
 
 
 function mouseoveredNode(d) {
-    if (force.alpha()>0) return;
+    if (force.alpha() > 0) return;
 
     var list = new Object();
     list[d.name] = new Object();
 
     // Highlight connected arcs
     svg.selectAll(".linkArc")
-        .style("stroke-opacity" , function(l) {
-            if (l.source.name==d.name){
-                if (!list[l.target.name]){
+        .style("stroke-opacity", function (l) {
+            if (l.source.name == d.name) {
+                if (!list[l.target.name]) {
                     list[l.target.name] = new Object();
-                    list[l.target.name].count=1;
-                    list[l.target.name].year=l.m;
-                    list[l.target.name].linkcount=l.count;
+                    list[l.target.name].count = 1;
+                    list[l.target.name].year = l.m;
+                    list[l.target.name].linkcount = l.count;
                 }
-                else{
+                else {
                     list[l.target.name].count++;
-                    if (l.count>list[l.target.name].linkcount){
+                    if (l.count > list[l.target.name].linkcount) {
                         list[l.target.name].linkcount = l.count;
-                        list[l.target.name].year=l.m;
+                        list[l.target.name].year = l.m;
                     }
                 }
                 return 1;
             }
-            else if (l.target.name==d.name){
-                if (!list[l.source.name]){
+            else if (l.target.name == d.name) {
+                if (!list[l.source.name]) {
                     list[l.source.name] = new Object();
-                    list[l.source.name].count=1;
-                    list[l.source.name].year=l.m;
-                    list[l.source.name].linkcount=l.count;
+                    list[l.source.name].count = 1;
+                    list[l.source.name].year = l.m;
+                    list[l.source.name].linkcount = l.count;
                 }
-                else{
+                else {
                     list[l.source.name].count++;
-                    if (l.count>list[l.source.name].linkcount){
+                    if (l.count > list[l.source.name].linkcount) {
                         list[l.source.name].linkcount = l.count;
-                        list[l.source.name].year=l.m;
+                        list[l.source.name].year = l.m;
                     }
                 }
                 return 1;
             }
             else
-              return 0.01;
-     });
+                return 0.01;
+        });
 
     svg.selectAll(".linePNodes")
-        .style("stroke-opacity" , function(n) {
-            if (d==n)
-               return 1;
+        .style("stroke-opacity", function (n) {
+            if (d == n)
+                return 1;
             return 0.01;
-     });
+        });
 
-    nodeG.style("fill-opacity" , function(n) {
+    nodeG.style("fill-opacity", function (n) {
         if (list[n.name])
             return 1;
         else
-          return 0.1;
-        })
-        .style("font-weight", function(n) { return d.name==n.name ? "bold" : ""; })
-    ;
+            return 0.1;
+    })
+        .style("font-weight", function (n) { return d.name == n.name ? "bold" : ""; })
+        ;
 
     // Highlight proposal circles for the hovered node
     highlightAuthorCircles(d.name, list);
 
-    nodeG.transition().duration(500).attr("transform", function(n) {
-        if (list[n.name] && n.name!=d.name){
-            var newX =xStep+xScale(list[n.name].year);
+    nodeG.transition().duration(500).attr("transform", function (n) {
+        if (list[n.name] && n.name != d.name) {
+            var newX = xStep + xScale(list[n.name].year);
             return "translate(" + newX + "," + n.y + ")"
         }
-        else{
+        else {
             return "translate(" + n.xConnected + "," + n.y + ")"
         }
     })
@@ -1740,22 +1776,22 @@ function mouseoveredNode(d) {
 }
 
 function mouseoutedNode(d) {
-    if (force.alpha()==0) {
+    if (force.alpha() == 0) {
         // Clear any SVG tooltips if present (legacy cleanup)
         svg.selectAll(".publicationTooltip").remove();
 
-        nodeG.style("fill-opacity" , 1);
+        nodeG.style("fill-opacity", 1);
         svg.selectAll(".linkArc")
-            .style("stroke-opacity" , 1);
+            .style("stroke-opacity", 1);
         svg.selectAll(".linePNodes")
-            .style("stroke-opacity" , 1);
+            .style("stroke-opacity", 1);
 
         // Restore proposal circle highlighting
         resetCircleHighlight();
 
-        nodeG.style("font-weight", "")  ;
-        nodeG.transition().duration(500).attr("transform", function(n) {
-            return "translate(" +n.xConnected + "," + n.y + ")"
+        nodeG.style("font-weight", "");
+        nodeG.transition().duration(500).attr("transform", function (n) {
+            return "translate(" + n.xConnected + "," + n.y + ")"
 
         })
 
@@ -1773,515 +1809,553 @@ function mouseouted(d) {
     mouseoutedNode(d);
 }
 
-    // check if a node for a day offset m already exists.
-    function isContainedChild(a, m) {
-        if (a){
-            for (var i=0; i<a.length;i++){
-                var index = a[i];
-                if (nodes[index].year==m)
-                    return i;
-            }
+// check if a node for a day offset m already exists.
+function isContainedChild(a, m) {
+    if (a) {
+        for (var i = 0; i < a.length; i++) {
+            var index = a[i];
+            if (nodes[index].year == m)
+                return i;
         }
-        return -1;
+    }
+    return -1;
+}
+
+// check if a day offset m is already in the array.
+function isContainedInteger(a, m) {
+    if (a) {
+        for (var i = 0; i < a.length; i++) {
+            if (a[i] == m)
+                return i;
+        }
+    }
+    return -1;
+}
+
+function linkArc(d) {
+    var sX = xStep + d.source.x;
+    var sY = d.source.y;
+    var tX = xStep + d.target.x;
+    var tY = d.target.y;
+
+    // Calculate width at source and target based on total funding
+    var wSource = widthScale(d.source.totalFunding || 0);
+    var wTarget = widthScale(d.target.totalFunding || 0);
+
+    // Calculate distance and unit vector
+    var dx = tX - sX;
+    var dy = tY - sY;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist === 0) return "M0,0"; // Should not happen for valid links
+
+    var ux = dx / dist;
+    var uy = dy / dist;
+
+    // Calculate offsets along the chord
+    var s1x = sX - ux * wSource / 2;
+    var s1y = sY - uy * wSource / 2;
+    var s2x = sX + ux * wSource / 2;
+    var s2y = sY + uy * wSource / 2;
+
+    var t1x = tX - ux * wTarget / 2;
+    var t1y = tY - uy * wTarget / 2;
+    var t2x = tX + ux * wTarget / 2;
+    var t2y = tY + uy * wTarget / 2;
+
+    // Radii for outer and inner arcs
+    var drOuter = Math.sqrt(Math.pow(t2x - s1x, 2) + Math.pow(t2y - s1y, 2)) / 2;
+    var drInner = Math.sqrt(Math.pow(s2x - t1x, 2) + Math.pow(s2y - t1y, 2)) / 2;
+
+    if (d.source.y < d.target.y) {
+        return "M" + s1x + "," + s1y +
+            "A" + drOuter + "," + drOuter + " 0 0,1 " + t2x + "," + t2y +
+            "L" + t1x + "," + t1y +
+            "A" + drInner + "," + drInner + " 0 0,0 " + s2x + "," + s2y +
+            "Z";
+    } else {
+        return "M" + t2x + "," + t2y +
+            "A" + drOuter + "," + drOuter + " 0 0,1 " + s1x + "," + s1y +
+            "L" + s2x + "," + s2y +
+            "A" + drInner + "," + drInner + " 0 0,0 " + t1x + "," + t1y +
+            "Z";
+    }
+}
+
+
+
+function update() {
+    // Calculate max proposals and max connectivity for normalization
+    var maxProposals = 0;
+    var maxConnectivity = 0;
+    for (var i = 0; i < nodes.length; i++) {
+        if (nodes[i].max > maxProposals) maxProposals = nodes[i].max;
+        if (nodes[i].connect && nodes[i].connect.length > maxConnectivity) {
+            maxConnectivity = nodes[i].connect.length;
+        }
     }
 
-     // check if a day offset m is already in the array.
-    function isContainedInteger(a, m) {
-        if (a){
-            for (var i=0; i<a.length;i++){
-                if (a[i]==m)
-                    return i;
+    // Calculate component centers for repulsion
+    var componentCenters = {};
+    var componentSizes = {};
+    if (window.components && window.numComponents > 1) {
+        // Calculate center of mass for each component
+        for (var compId in window.components) {
+            var compNodes = window.components[compId];
+            var centerX = 0, centerY = 0, count = 0;
+            for (var i = 0; i < compNodes.length; i++) {
+                var nodeIdx = compNodes[i];
+                if (nodeIdx < nodes.length && nodes[nodeIdx].x !== undefined && nodes[nodeIdx].y !== undefined) {
+                    centerX += nodes[nodeIdx].x;
+                    centerY += nodes[nodeIdx].y;
+                    count++;
+                }
+            }
+            if (count > 0) {
+                componentCenters[compId] = { x: centerX / count, y: centerY / count };
+                componentSizes[compId] = count;
             }
         }
-        return -1;
     }
 
-    function linkArc(d) {
-        var dx = d.target.x - d.source.x,
-            dy = d.target.y - d.source.y,
-            dr = Math.sqrt(dx * dx + dy * dy)/2;
-        // return "M" + (xStep+d.source.x) + "," + d.source.y + " Q" + ((xStep+d.source.x)+dr) + "," + d.target.y+ " " + (xStep+d.target.x) + "," + d.target.y;
-     
-        if (d.source.y<d.target.y )
-            return "M" + (xStep+d.source.x) + "," + d.source.y + "A" + dr + "," + dr + " 0 0,1 " + (xStep+d.target.x) + "," + d.target.y;
-        else
-            return "M" + (xStep+d.target.x) + "," + d.target.y + "A" + dr + "," + dr + " 0 0,1 " + (xStep+d.source.x) + "," + d.source.y;
-    }
+    nodes.forEach(function (d) {
+        //if (searchTerm!="")
+        //    d.x += (width/2-d.x)*0.02;
+        //else
+        d.x += (width / 2 - d.x) * 0.005;
 
-
-
-    function update(){
-        // Calculate max proposals and max connectivity for normalization
-        var maxProposals = 0;
-        var maxConnectivity = 0;
-        for (var i = 0; i < nodes.length; i++) {
-            if (nodes[i].max > maxProposals) maxProposals = nodes[i].max;
-            if (nodes[i].connect && nodes[i].connect.length > maxConnectivity) {
-                maxConnectivity = nodes[i].connect.length;
+        if (d.parentNode >= 0) {
+            d.y += (nodes[d.parentNode].y - d.y) * 0.1;
+        }
+        else if (d.childNodes) {
+            var yy = 0;
+            for (var i = 0; i < d.childNodes.length; i++) {
+                var child = d.childNodes[i];
+                yy += nodes[child].y;
+            }
+            if (d.childNodes.length > 0) {
+                yy = yy / d.childNodes.length; // average y coordinate
+                d.y += (yy - d.y) * 0.5;
             }
         }
 
-        // Calculate component centers for repulsion
-        var componentCenters = {};
-        var componentSizes = {};
-        if (window.components && window.numComponents > 1) {
-            // Calculate center of mass for each component
-            for (var compId in window.components) {
-                var compNodes = window.components[compId];
-                var centerX = 0, centerY = 0, count = 0;
-                for (var i = 0; i < compNodes.length; i++) {
-                    var nodeIdx = compNodes[i];
-                    if (nodeIdx < nodes.length && nodes[nodeIdx].x !== undefined && nodes[nodeIdx].y !== undefined) {
-                        centerX += nodes[nodeIdx].x;
-                        centerY += nodes[nodeIdx].y;
-                        count++;
-                    }
-                }
-                if (count > 0) {
-                    componentCenters[compId] = {x: centerX / count, y: centerY / count};
-                    componentSizes[compId] = count;
-                }
-            }
-        }
+        // Custom forces for parent nodes only
+        if (d.parentNode === undefined || d.parentNode < 0) {
+            // Force 1: No center pull - focus on connections only
+            // Removed center pull to let connectivity forces dominate
 
-        nodes.forEach(function(d) {
-            //if (searchTerm!="")
-            //    d.x += (width/2-d.x)*0.02;
-            //else
-                d.x += (width/2-d.x)*0.005;
+            // Force 2: Pull HIGHLY-connected authors toward each other
+            // Nodes with few connections should not cluster strongly
+            if (d.connect && d.connect.length > 0) {
+                var thisConnectivity = d.connect.length;
+                var connectivityScore = maxConnectivity > 0 ? thisConnectivity / maxConnectivity : 0;
 
-            if  (d.parentNode>=0){
-                d.y += (nodes[d.parentNode].y- d.y)*0.1;
-            }
-            else if (d.childNodes){
-                var yy = 0;
-                for (var i=0; i< d.childNodes.length;i++){
-                    var child = d.childNodes[i];
-                    yy += nodes[child].y;
-                }
-                if (d.childNodes.length>0){
-                    yy = yy/d.childNodes.length; // average y coordinate
-                    d.y += (yy-d.y)*0.5;
-                }
-            }
+                // Only apply clustering force if node has above-average connectivity
+                // This prevents weakly connected nodes from being pulled together
+                var connectivityThreshold = 0.4; // Only cluster nodes with >40% of max connectivity
+                if (connectivityScore >= connectivityThreshold) {
+                    var avgConnectedY = 0;
+                    var connectedCount = 0;
+                    var totalWeight = 0;
 
-            // Custom forces for parent nodes only
-            if (d.parentNode === undefined || d.parentNode < 0) {
-                // Force 1: No center pull - focus on connections only
-                // Removed center pull to let connectivity forces dominate
+                    // Only consider highly-connected neighbors for clustering
+                    for (var i = 0; i < d.connect.length; i++) {
+                        var connectedNodeId = d.connect[i];
+                        if (connectedNodeId < nodes.length && nodes[connectedNodeId].y !== undefined) {
+                            var connectedNode = nodes[connectedNodeId];
+                            var neighborConnectivity = connectedNode.connect ? connectedNode.connect.length : 0;
+                            var neighborScore = maxConnectivity > 0 ? neighborConnectivity / maxConnectivity : 0;
 
-                // Force 2: Pull HIGHLY-connected authors toward each other
-                // Nodes with few connections should not cluster strongly
-                if (d.connect && d.connect.length > 0) {
-                    var thisConnectivity = d.connect.length;
-                    var connectivityScore = maxConnectivity > 0 ? thisConnectivity / maxConnectivity : 0;
-
-                    // Only apply clustering force if node has above-average connectivity
-                    // This prevents weakly connected nodes from being pulled together
-                    var connectivityThreshold = 0.4; // Only cluster nodes with >40% of max connectivity
-                    if (connectivityScore >= connectivityThreshold) {
-                        var avgConnectedY = 0;
-                        var connectedCount = 0;
-                        var totalWeight = 0;
-
-                        // Only consider highly-connected neighbors for clustering
-                        for (var i = 0; i < d.connect.length; i++) {
-                            var connectedNodeId = d.connect[i];
-                            if (connectedNodeId < nodes.length && nodes[connectedNodeId].y !== undefined) {
-                                var connectedNode = nodes[connectedNodeId];
-                                var neighborConnectivity = connectedNode.connect ? connectedNode.connect.length : 0;
-                                var neighborScore = maxConnectivity > 0 ? neighborConnectivity / maxConnectivity : 0;
-
-                                // Only weight highly-connected neighbors more
-                                // Weakly connected neighbors have less influence
-                                if (neighborScore >= connectivityThreshold) {
-                                    var weight = neighborConnectivity + 1; // Strong weight for highly connected
-                                    avgConnectedY += nodes[connectedNodeId].y * weight;
-                                    totalWeight += weight;
-                                } else {
-                                    // Weakly connected neighbors have minimal weight
-                                    var weight = 0.5;
-                                    avgConnectedY += nodes[connectedNodeId].y * weight;
-                                    totalWeight += weight;
-                                }
-                                connectedCount++;
+                            // Only weight highly-connected neighbors more
+                            // Weakly connected neighbors have less influence
+                            if (neighborScore >= connectivityThreshold) {
+                                var weight = neighborConnectivity + 1; // Strong weight for highly connected
+                                avgConnectedY += nodes[connectedNodeId].y * weight;
+                                totalWeight += weight;
+                            } else {
+                                // Weakly connected neighbors have minimal weight
+                                var weight = 0.5;
+                                avgConnectedY += nodes[connectedNodeId].y * weight;
+                                totalWeight += weight;
                             }
-                        }
-
-                        if (connectedCount > 0 && totalWeight > 0) {
-                            avgConnectedY /= totalWeight;
-                            // Pull strength proportional to connectivity (no minimum floor)
-                            // Reduced pull strength to allow spacing forces to maintain separation
-                            var clusterPull = (avgConnectedY - d.y) * connectivityScore * 0.05;
-                            d.y += clusterPull;
+                            connectedCount++;
                         }
                     }
-                    // Nodes below threshold are not pulled together - they maintain separation
-                }
 
-                // Force 3: Minimum spacing between all parent nodes to prevent name overlap
-                // This ensures visual breathing room even for strongly connected clusters
-                var minSpacing = 65; // Minimum vertical spacing between nodes (in pixels) - increased for readability
-                var spacingRepulsionStrength = 2.5; // Strong repulsion when too close - increased significantly
-                
-                for (var j = 0; j < numNode; j++) {
-                    if (j === d.id || nodes[j].parentNode >= 0) continue; // Skip self and child nodes
-                    
-                    var otherNode = nodes[j];
-                    if (otherNode.y === undefined) continue;
-                    
-                    var dy = d.y - otherNode.y;
-                    var absDy = Math.abs(dy);
-                    
-                    // If nodes are too close vertically, push them apart strongly
-                    if (absDy < minSpacing && absDy > 0) {
-                        // Stronger force calculation - exponential increase as nodes get closer
-                        var normalizedDistance = absDy / minSpacing;
-                        var pushForce = spacingRepulsionStrength * (1 - normalizedDistance) * (1 - normalizedDistance);
-                        if (dy > 0) {
-                            // Current node is below, push it down
-                            d.y += pushForce;
-                        } else {
-                            // Current node is above, push it up
-                            d.y -= pushForce;
-                        }
+                    if (connectedCount > 0 && totalWeight > 0) {
+                        avgConnectedY /= totalWeight;
+                        // Pull strength proportional to connectivity (no minimum floor)
+                        // Reduced pull strength to allow spacing forces to maintain separation
+                        var clusterPull = (avgConnectedY - d.y) * connectivityScore * 0.05;
+                        d.y += clusterPull;
                     }
                 }
+                // Nodes below threshold are not pulled together - they maintain separation
+            }
 
-                // Force 4: Repulsion between different components
-                // This separates strongly connected components
-                if (window.components && window.numComponents > 1 && d.componentId !== undefined) {
-                    var repulsionStrength = 0.15; // Adjust this to control separation strength
-                    var minDistance = 100; // Minimum desired distance between components
-                    
-                    for (var otherCompId in componentCenters) {
-                        if (otherCompId != d.componentId && componentCenters[otherCompId]) {
-                            var otherCenter = componentCenters[otherCompId];
-                            var dx = d.x - otherCenter.x;
-                            var dy = d.y - otherCenter.y;
-                            var distance = Math.sqrt(dx * dx + dy * dy);
-                            
-                            if (distance > 0 && distance < minDistance * 2) {
-                                // Apply repulsion force inversely proportional to distance
-                                var force = repulsionStrength * (minDistance / distance);
-                                d.x += (dx / distance) * force;
-                                d.y += (dy / distance) * force;
-                            }
+            // Force 3: Minimum spacing between all parent nodes to prevent name overlap
+            // This ensures visual breathing room even for strongly connected clusters
+            var minSpacing = 65; // Minimum vertical spacing between nodes (in pixels) - increased for readability
+            var spacingRepulsionStrength = 2.5; // Strong repulsion when too close - increased significantly
+
+            for (var j = 0; j < numNode; j++) {
+                if (j === d.id || nodes[j].parentNode >= 0) continue; // Skip self and child nodes
+
+                var otherNode = nodes[j];
+                if (otherNode.y === undefined) continue;
+
+                var dy = d.y - otherNode.y;
+                var absDy = Math.abs(dy);
+
+                // If nodes are too close vertically, push them apart strongly
+                if (absDy < minSpacing && absDy > 0) {
+                    // Stronger force calculation - exponential increase as nodes get closer
+                    var normalizedDistance = absDy / minSpacing;
+                    var pushForce = spacingRepulsionStrength * (1 - normalizedDistance) * (1 - normalizedDistance);
+                    if (dy > 0) {
+                        // Current node is below, push it down
+                        d.y += pushForce;
+                    } else {
+                        // Current node is above, push it up
+                        d.y -= pushForce;
+                    }
+                }
+            }
+
+            // Force 4: Repulsion between different components
+            // This separates strongly connected components
+            if (window.components && window.numComponents > 1 && d.componentId !== undefined) {
+                var repulsionStrength = 0.15; // Adjust this to control separation strength
+                var minDistance = 100; // Minimum desired distance between components
+
+                for (var otherCompId in componentCenters) {
+                    if (otherCompId != d.componentId && componentCenters[otherCompId]) {
+                        var otherCenter = componentCenters[otherCompId];
+                        var dx = d.x - otherCenter.x;
+                        var dy = d.y - otherCenter.y;
+                        var distance = Math.sqrt(dx * dx + dy * dy);
+
+                        if (distance > 0 && distance < minDistance * 2) {
+                            // Apply repulsion force inversely proportional to distance
+                            var force = repulsionStrength * (minDistance / distance);
+                            d.x += (dx / distance) * force;
+                            d.y += (dy / distance) * force;
                         }
                     }
                 }
             }
-        });    
-        //if (document.getElementById("checkbox1").checked){
-             linkArcs.style("stroke-width", 0);
-            
-            // nodeG.transition().duration(500).attr("transform", function(d) {
-            //    return "translate(" + 200 + "," + d.y + ")"
-           // })
-           // svg.selectAll(".nodeText").style("text-anchor","start")
+        }
+    });
+    //if (document.getElementById("checkbox1").checked){
+    linkArcs.style("stroke-width", 0);
+
+    // nodeG.transition().duration(500).attr("transform", function(d) {
+    //    return "translate(" + 200 + "," + d.y + ")"
+    // })
+    // svg.selectAll(".nodeText").style("text-anchor","start")
 
 
-            // Keep the same yScale for visible streamgraphs (don't reset to tiny value)
-            // yScale is already set to proper range in computeLinks, don't override it
-            nodeG.attr("transform", function(d) {
-                return "translate(" + (xStep+d.x) + "," + d.y + ")"
-            })
-            linkArcs.style("stroke-width", function (d) {
-                // Force count=1 to always be thin
-                if (d.count === 1) {
-                    return 1.2;
-                }
-                return d.value;
-            });
-        /*}
-        else{
-        
-            yScale = d3.scale.linear()
-            .range([0, 0])
-            .domain([0, termMaxMax2]);
-        
+    // Keep the same yScale for visible streamgraphs (don't reset to tiny value)
+    // yScale is already set to proper range in computeLinks, don't override it
+    nodeG.attr("transform", function (d) {
+        return "translate(" + (xStep + d.x) + "," + d.y + ")"
+    })
+    linkArcs.style("stroke-width", function (d) {
+        // Force count=1 to always be thin
+        if (d.count === 1) {
+            return 1.2;
+        }
+        return d.value;
+    });
+    /*}
+    else{
+    
+        yScale = d3.scale.linear()
+        .range([0, 0])
+        .domain([0, termMaxMax2]);
+    
 
-            nodeG.attr("transform", function(d) {
-                return "translate(" + (xStep+d.x) + "," + d.y + ")"
-            })
-            linkArcs.style("stroke-width", function (d) {
-                // Force count=1 to always be thin
-                if (d.count === 1) {
-                    return 1.2;
-                }
-                return d.value;
-            });
-         }   */
-
-        linkArcs.attr("d", linkArc);
-
-        // Update proposal circles to follow their author nodes during force layout
-        // This makes circles animate smoothly with nodes, treating them as nodes without links
-        svg.selectAll(".proposal-circle")
-            .attr("cy", function() {
-                var authorName = d3.select(this).attr("data-author");
-                // Find the author's current Y position
-                for (var i = 0; i < pNodes.length; i++) {
-                    if (pNodes[i].name === authorName) {
-                        return pNodes[i].y;
-                    }
-                }
-                // Fallback: keep current position if author not found
-                return parseFloat(d3.select(this).attr("cy"));
-            });
-      //  if (force.alpha()<0.02)
-      //     force.stop();
-    } 
-
-    function updateTransition(durationTime, timeY){  // timeY is the position of time legend
-        nodes.forEach(function(d) {
-           d.x=xScale(d.year);
-            if (d.parentNode>=0)
-                d.y= nodes[d.parentNode].y;
-        });    
-
-
-        var list = new Object();
-        links.forEach(function(l) {  
-            var m = l.m
-            if (!list[l.target.name])
-                list[l.target.name] = new Object();
-            if (!list[l.target.name][m])
-                list[l.target.name][m] = 0;
-            list[l.target.name][m]++;
-            
-            if (!list[l.source.name])
-                list[l.source.name] = new Object();
-            if (!list[l.source.name][m])
-                list[l.source.name][m] = 0;
-            list[l.source.name][m]++;
-         });
-       
-
-        nodeG.transition().duration(durationTime).attr("transform", function(d) {
-           d.xConnected= xStep+ xScale(d.isConnectedMaxYear);
-
-           // Find the earliest month with any activity (proposals OR links)
-           var minY = numYear; // Start with max value
-           var maxY = 0;
-
-           // Check for proposals in streamgraph data (first activity)
-           if (d.sponsorGroupsData && sponsorGroups) {
-               for (var m = 0; m < numYear; m++) {
-                   var hasActivity = false;
-                   // Check if any sponsor group has proposals in this month
-                   for (var g = 0; g < sponsorGroups.length; g++) {
-                       var groupName = sponsorGroups[g];
-                       if (d.sponsorGroupsData[groupName] &&
-                           d.sponsorGroupsData[groupName][m] &&
-                           d.sponsorGroupsData[groupName][m].value > 0) {
-                           hasActivity = true;
-                           if (m < minY) minY = m;
-                           if (m > maxY) maxY = m;
-                       }
-                   }
-               }
-           }
-
-           // Also check links (fallback if no streamgraph data)
-           for (var m=0; m<numYear; m++){
-                if (list[d.name] && list[d.name][m]){
-                    if (m < minY) minY = m;
-                    if (m > maxY) maxY = m;
-                }
-           }
-
-           // If no activity found, use the connected year
-           if (minY === numYear) {
-               minY = d.isConnectedMaxYear || 0;
-           }
-
-            d.minY = minY;
-            d.maxY = maxY;
-            d.xConnected = xStep + xScale(minY);  // Position at beginning of streamgraph
-           return "translate(" + d.xConnected + "," + d.y + ")"
+        nodeG.attr("transform", function(d) {
+            return "translate(" + (xStep+d.x) + "," + d.y + ")"
         })
-        
-        svg.selectAll(".linePNodes").transition().duration(durationTime)
-            .attr("x1", function(d) {return xStep+xScale(d.minY);})
-            .attr("y1", function(d) {return d.y;})
-            .attr("x2", function(d) {return xStep+xScale(d.maxY);})
-            .attr("y2", function(d) {return d.y;}); 
+        linkArcs.style("stroke-width", function (d) {
+            // Force count=1 to always be thin
+            if (d.count === 1) {
+                return 1.2;
+            }
+            return d.value;
+        });
+     }   */
 
-       // svg.selectAll(".timeLegend").transition().duration(durationTime)
-       //     .attr("y", timeY/3)
-        
-        
-        svg.selectAll(".nodeText").transition().duration(durationTime)
-            .text(function(d) { return d.name; })
-            .attr("dy", "3px");
+    linkArcs.attr("d", linkArc);
 
-        // Update proposal circles to follow node Y positions
-        updateProposalCircles(durationTime);  
-        linkArcs.transition().duration(durationTime).attr("d", linkArc);     
-    }    
+    // Update proposal circles to follow their author nodes during force layout
+    // This makes circles animate smoothly with nodes, treating them as nodes without links
+    svg.selectAll(".proposal-circle")
+        .attr("cy", function () {
+            var authorName = d3.select(this).attr("data-author");
+            // Find the author's current Y position
+            for (var i = 0; i < pNodes.length; i++) {
+                if (pNodes[i].name === authorName) {
+                    return pNodes[i].y;
+                }
+            }
+            // Fallback: keep current position if author not found
+            return parseFloat(d3.select(this).attr("cy"));
+        });
+    //  if (force.alpha()<0.02)
+    //     force.stop();
+}
 
-    function detactTimeSeries(){
-       // console.log("DetactTimeSeries ************************************" +data);
-        nodeG.selectAll(".nodeText")
-            .attr("font-size", "12px");
+function updateTransition(durationTime, timeY) {  // timeY is the position of time legend
+    nodes.forEach(function (d) {
+        d.x = xScale(d.year);
+        if (d.parentNode >= 0)
+            d.y = nodes[d.parentNode].y;
+    });
 
-        // Preserve the Y positions from force layout
-        // The force layout has already clustered connected nodes together
-        // Only ensure nodes are within bounds and apply minimal smoothing
-        var minY = Infinity, maxY = -Infinity;
+
+    var list = new Object();
+    links.forEach(function (l) {
+        var m = l.m
+        if (!list[l.target.name])
+            list[l.target.name] = new Object();
+        if (!list[l.target.name][m])
+            list[l.target.name][m] = 0;
+        list[l.target.name][m]++;
+
+        if (!list[l.source.name])
+            list[l.source.name] = new Object();
+        if (!list[l.source.name][m])
+            list[l.source.name][m] = 0;
+        list[l.source.name][m]++;
+    });
+
+
+    nodeG.transition().duration(durationTime).attr("transform", function (d) {
+        d.xConnected = xStep + xScale(d.isConnectedMaxYear);
+
+        // Find the earliest month with any activity (proposals OR links)
+        var minY = numYear; // Start with max value
+        var maxY = 0;
+
+        // Check for proposals in streamgraph data (first activity)
+        if (d.sponsorGroupsData && sponsorGroups) {
+            for (var m = 0; m < numYear; m++) {
+                var hasActivity = false;
+                // Check if any sponsor group has proposals in this month
+                for (var g = 0; g < sponsorGroups.length; g++) {
+                    var groupName = sponsorGroups[g];
+                    if (d.sponsorGroupsData[groupName] &&
+                        d.sponsorGroupsData[groupName][m] &&
+                        d.sponsorGroupsData[groupName][m].value > 0) {
+                        hasActivity = true;
+                        if (m < minY) minY = m;
+                        if (m > maxY) maxY = m;
+                    }
+                }
+            }
+        }
+
+        // Also check links (fallback if no streamgraph data)
+        for (var m = 0; m < numYear; m++) {
+            if (list[d.name] && list[d.name][m]) {
+                if (m < minY) minY = m;
+                if (m > maxY) maxY = m;
+            }
+        }
+
+        // If no activity found, use the connected year
+        if (minY === numYear) {
+            minY = d.isConnectedMaxYear || 0;
+        }
+
+        d.minY = minY;
+        d.maxY = maxY;
+        d.xConnected = xStep + xScale(minY);  // Position at beginning of streamgraph
+        return "translate(" + d.xConnected + "," + d.y + ")"
+    })
+
+    svg.selectAll(".linePNodes").transition().duration(durationTime)
+        .attr("x1", function (d) { return xStep + xScale(d.minY); })
+        .attr("y1", function (d) { return d.y; })
+        .attr("x2", function (d) { return xStep + xScale(d.maxY); })
+        .attr("y2", function (d) { return d.y; });
+
+    // svg.selectAll(".timeLegend").transition().duration(durationTime)
+    //     .attr("y", timeY/3)
+
+
+    svg.selectAll(".nodeText").transition().duration(durationTime)
+        .text(function (d) { return d.name; })
+        .attr("dy", "3px");
+
+    // Update proposal circles to follow node Y positions
+    updateProposalCircles(durationTime);
+    linkArcs.transition().duration(durationTime).attr("d", linkArc);
+}
+
+function detactTimeSeries() {
+    // console.log("DetactTimeSeries ************************************" +data);
+    nodeG.selectAll(".nodeText")
+        .attr("font-size", "12px");
+
+    // Preserve the Y positions from force layout
+    // The force layout has already clustered connected nodes together
+    // Only ensure nodes are within bounds and apply minimal smoothing
+    var minY = Infinity, maxY = -Infinity;
+    for (var i = 0; i < numNode; i++) {
+        if (nodes[i].parentNode === undefined || nodes[i].parentNode < 0) {
+            if (nodes[i].y < minY) minY = nodes[i].y;
+            if (nodes[i].y > maxY) maxY = nodes[i].y;
+        }
+    }
+
+    // If nodes are clustered but outside bounds, scale them to fit
+    if (maxY > minY && (minY < 0 || maxY > height)) {
+        var scale = (height - 40) / (maxY - minY); // Leave 20px margin on each side
+        var offset = 20 - minY * scale;
         for (var i = 0; i < numNode; i++) {
             if (nodes[i].parentNode === undefined || nodes[i].parentNode < 0) {
-                if (nodes[i].y < minY) minY = nodes[i].y;
-                if (nodes[i].y > maxY) maxY = nodes[i].y;
+                nodes[i].y = nodes[i].y * scale + offset;
+                // Keep within bounds
+                if (nodes[i].y < 10) nodes[i].y = 10;
+                if (nodes[i].y > height - 10) nodes[i].y = height - 10;
             }
         }
-
-        // If nodes are clustered but outside bounds, scale them to fit
-        if (maxY > minY && (minY < 0 || maxY > height)) {
-            var scale = (height - 40) / (maxY - minY); // Leave 20px margin on each side
-            var offset = 20 - minY * scale;
-            for (var i = 0; i < numNode; i++) {
-                if (nodes[i].parentNode === undefined || nodes[i].parentNode < 0) {
-                    nodes[i].y = nodes[i].y * scale + offset;
-                    // Keep within bounds
-                    if (nodes[i].y < 10) nodes[i].y = 10;
-                    if (nodes[i].y > height - 10) nodes[i].y = height - 10;
-                }
-            }
-        }
-
-        force.stop();
-
-        updateTransition(2000, height-4);
     }
 
-    // =============== Right Panel Rendering ===============
-    function getPublicationsForAuthor(name) {
-        // Return unique publications for given author
-        var pubs = authorPubs[name] || [];
-        // De-duplicate by proposal_no + theme
-        var seen = {};
-        var out = [];
-        for (var i = 0; i < pubs.length; i++) {
-            var k = pubs[i].proposal_no + "**" + (pubs[i].theme || "");
-            if (!seen[k]) { seen[k] = 1; out.push(pubs[i]); }
-        }
-        // Sort by year desc, then title
-        out.sort(function(a,b){
-            if (a.year !== b.year) return b.year - a.year;
-            if (a.title < b.title) return -1;
-            if (a.title > b.title) return 1;
-            return 0;
-        });
-        return out;
-    }
+    force.stop();
 
-    function renderPanelForPerson(name) {
-        var panel = document.getElementById('pub-panel-content');
-        if (!panel) return;
-        // Save current scroll if switching from all-authors view
-        var container = document.getElementById('pub-panel');
-        if (container && panelMode === 'all') {
-            savedAllPanelScrollTop = container.scrollTop || 0;
+    updateTransition(2000, height - 4);
+}
+
+// =============== Right Panel Rendering ===============
+function getPublicationsForAuthor(name) {
+    // Return unique publications for given author
+    var pubs = authorPubs[name] || [];
+    // De-duplicate by proposal_no + theme
+    var seen = {};
+    var out = [];
+    for (var i = 0; i < pubs.length; i++) {
+        var k = pubs[i].proposal_no + "**" + (pubs[i].theme || "");
+        if (!seen[k]) { seen[k] = 1; out.push(pubs[i]); }
+    }
+    // Sort by year desc, then title
+    out.sort(function (a, b) {
+        if (a.year !== b.year) return b.year - a.year;
+        if (a.title < b.title) return -1;
+        if (a.title > b.title) return 1;
+        return 0;
+    });
+    return out;
+}
+
+function renderPanelForPerson(name) {
+    var panel = document.getElementById('pub-panel-content');
+    if (!panel) return;
+    // Save current scroll if switching from all-authors view
+    var container = document.getElementById('pub-panel');
+    if (container && panelMode === 'all') {
+        savedAllPanelScrollTop = container.scrollTop || 0;
+    }
+    var pubs = getPublicationsForAuthor(name);
+    var cap = PANEL_MAX_ITEMS;
+    var html = '';
+    html += '<div class="pub-group">';
+    html += '<div class="pub-group__title">' + escapeHtml(name) + ' - Publications (' + pubs.length + ')</div>';
+    if (pubs.length === 0) {
+        html += '<div class="pub-muted">No publications found.</div>';
+    } else {
+        var n = Math.min(cap, pubs.length);
+        for (var i = 0; i < n; i++) {
+            var p = pubs[i];
+            var color = getColor(p.sponsor);
+            html += '<div class="pub-item">'
+                + '<span class="pub-item__year" style="color:' + color + '">' + p.year + '</span>'
+                + '<span>' + escapeHtml(p.title) + '</span>'
+                + '</div>';
         }
+        if (pubs.length > cap) {
+            html += '<div class="pub-muted">… and ' + (pubs.length - cap) + ' more</div>';
+        }
+    }
+    html += '</div>';
+    panel.innerHTML = html;
+    panelMode = 'person';
+}
+
+function renderPanelAll() {
+    var panel = document.getElementById('pub-panel-content');
+    if (!panel) return;
+    // Sort authors alphabetically by name
+    var html = '';
+    if (!pNodes || pNodes.length === 0) {
+        html = '<div class="pub-muted">No authors available.</div>';
+        panel.innerHTML = html;
+        return;
+    }
+    // Create a copy of pNodes and sort alphabetically by name
+    var sortedNodes = pNodes.slice().sort(function (a, b) {
+        var nameA = a.name.toUpperCase();
+        var nameB = b.name.toUpperCase();
+        if (nameA < nameB) return -1;
+        if (nameA > nameB) return 1;
+        return 0;
+    });
+    for (var i = 0; i < sortedNodes.length; i++) {
+        var name = sortedNodes[i].name;
         var pubs = getPublicationsForAuthor(name);
-        var cap = PANEL_MAX_ITEMS;
-        var html = '';
         html += '<div class="pub-group">';
-        html += '<div class="pub-group__title">' + escapeHtml(name) + ' - Publications (' + pubs.length + ')</div>';
+        html += '<div class="pub-group__title">' + escapeHtml(name) + ' (' + pubs.length + ')</div>';
         if (pubs.length === 0) {
-            html += '<div class="pub-muted">No publications found.</div>';
+            html += '<div class="pub-muted">No publications</div>';
         } else {
-            var n = Math.min(cap, pubs.length);
-            for (var i=0; i<n; i++) {
-                var p = pubs[i];
+            for (var j = 0; j < pubs.length; j++) {
+                var p = pubs[j];
                 var color = getColor(p.sponsor);
                 html += '<div class="pub-item">'
                     + '<span class="pub-item__year" style="color:' + color + '">' + p.year + '</span>'
                     + '<span>' + escapeHtml(p.title) + '</span>'
                     + '</div>';
             }
-            if (pubs.length > cap) {
-                html += '<div class="pub-muted">… and ' + (pubs.length - cap) + ' more</div>';
-            }
         }
         html += '</div>';
-        panel.innerHTML = html;
-        panelMode = 'person';
     }
+    panel.innerHTML = html;
+    // Restore previous scroll position from before hover
+    var container = document.getElementById('pub-panel');
+    if (container) {
+        container.scrollTop = savedAllPanelScrollTop || 0;
+    }
+    panelMode = 'all';
+}
 
-    function renderPanelAll() {
-        var panel = document.getElementById('pub-panel-content');
-        if (!panel) return;
-        // Sort authors alphabetically by name
-        var html = '';
-        if (!pNodes || pNodes.length === 0) {
-            html = '<div class="pub-muted">No authors available.</div>';
-            panel.innerHTML = html;
-            return;
-        }
-        // Create a copy of pNodes and sort alphabetically by name
-        var sortedNodes = pNodes.slice().sort(function(a, b) {
-            var nameA = a.name.toUpperCase();
-            var nameB = b.name.toUpperCase();
-            if (nameA < nameB) return -1;
-            if (nameA > nameB) return 1;
-            return 0;
-        });
-        for (var i=0; i<sortedNodes.length; i++) {
-            var name = sortedNodes[i].name;
-            var pubs = getPublicationsForAuthor(name);
-            html += '<div class="pub-group">';
-            html += '<div class="pub-group__title">' + escapeHtml(name) + ' (' + pubs.length + ')</div>';
-            if (pubs.length === 0) {
-                html += '<div class="pub-muted">No publications</div>';
-            } else {
-                for (var j=0; j<pubs.length; j++) {
-                    var p = pubs[j];
-                    var color = getColor(p.sponsor);
-                    html += '<div class="pub-item">'
-                        + '<span class="pub-item__year" style="color:' + color + '">' + p.year + '</span>'
-                        + '<span>' + escapeHtml(p.title) + '</span>'
-                        + '</div>';
-                }
-            }
-            html += '</div>';
-        }
-        panel.innerHTML = html;
-        // Restore previous scroll position from before hover
-        var container = document.getElementById('pub-panel');
-        if (container) {
-            container.scrollTop = savedAllPanelScrollTop || 0;
-        }
-        panelMode = 'all';
-    }
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
-    function escapeHtml(str) {
-        if (str == null) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
+// Function to toggle inactive authors filter
+function toggleInactiveAuthorsFilter() {
+    excludeInactiveAuthors = document.getElementById('exclude-inactive-checkbox').checked;
+    console.log("Exclude inactive authors:", excludeInactiveAuthors);
 
-    // Function to toggle inactive authors filter
-    function toggleInactiveAuthorsFilter() {
-        excludeInactiveAuthors = document.getElementById('exclude-inactive-checkbox').checked;
-        console.log("Exclude inactive authors:", excludeInactiveAuthors);
-        
-        // Recompute the visualization with the new filter
-        readTermsAndRelationships();
-        computeNodes();
-        computeLinks();
-        force.nodes(nodes)
-            .links(links)
-            .start();
-    }
-    
-    window.toggleInactiveAuthorsFilter = toggleInactiveAuthorsFilter;
+    // Recompute the visualization with the new filter
+    readTermsAndRelationships();
+    computeNodes();
+    computeLinks();
+    force.nodes(nodes)
+        .links(links)
+        .start();
+}
+
+window.toggleInactiveAuthorsFilter = toggleInactiveAuthorsFilter;
 
 
 
